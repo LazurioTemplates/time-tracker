@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000033
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-26T08:15:00.000Z
+  note: Weekly meeting
+  person: 22222222-2222-4222-8222-222222222222
+  personName: jamiechen
+  project: internal-operations
+  source: timer
+  startedAt: 2026-10-26T07:30:00.000Z
+  updatedAt: 2026-10-26T08:15:00.000Z
+  updatedBy: 22222222-2222-4222-8222-222222222222
+schemaVersion: time-tracker.entry.v1

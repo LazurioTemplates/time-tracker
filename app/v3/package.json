@@ -1,0 +1,75 @@
+{
+  "name": "time-tracker-app-v3",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "dev": "bun --no-env-file run src/server/main.ts",
+    "start": "bun --no-env-file run src/server/main.ts",
+    "dev:demo": "bun --no-env-file run src/server/demo.ts",
+    "build": "bun ./node_modules/vite/bin/vite.js build",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check --error-on-warnings .",
+    "format": "biome check --write .",
+    "check": "bun run typecheck && bun run lint && bun run test && bun run validate:data && bun run schema:check",
+    "check:prepared": "bun run src/prepared.ts",
+    "test": "bun test",
+    "validate:data": "bun run src/validate-data.ts seed/cs seed/en && bun run src/cli/validate.ts --seed",
+    "validate:db": "bun run src/validate-data.ts ../../db/data && bun run src/cli/validate.ts",
+    "schema:export": "bun run src/cli/schema.ts --write",
+    "schema:check": "bun run src/cli/schema.ts --check"
+  },
+  "dependencies": {
+    "@lazurio/module-kit": "github:Lazurio/module-kit#v0.3.0",
+    "@lazurio/repository-db": "github:Lazurio/repository-db#v3.2.6",
+    "@vitejs/plugin-react": "6.2.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vite": "8.3.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@types/bun": "1.4.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
+  },
+  "lazurio": {
+    "runtime": {
+      "schema_version": "lazurio.runtime.v1",
+      "id": "replace-with-org-slug-time-tracker-v3",
+      "title": "Evidence času",
+      "description": "Odpracovaný čas na projektech: časovače, ruční záznamy, přehledy a export.",
+      "company": "REPLACE-WITH-ORG-NAME",
+      "module": "time-tracker",
+      "surface": "internal",
+      "dev_script": "dev",
+      "start_script": "start",
+      "build_script": "build",
+      "build_output": "dist",
+      "tags": [
+        "time-tracker",
+        "repository-db"
+      ],
+      "listeners": [
+        {
+          "id": "app",
+          "role": "entrypoint",
+          "lease": "main",
+          "protocol": "http",
+          "health": {
+            "kind": "http",
+            "path": "/healthz"
+          }
+        }
+      ]
+    },
+    "preparation": {
+      "schema_version": "lazurio.preparation.v1",
+      "owner_package": "app/v3/package.json",
+      "check_script": "check:prepared"
+    }
+  }
+}

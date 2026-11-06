@@ -1,0 +1,7 @@
+id: jarni-kampan
+record:
+  archived: false
+  billable: true
+  client: example-studio
+  name: Jarní kampaň
+schemaVersion: time-tracker.project.v1

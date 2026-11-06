@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000008
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-19T14:30:00.000Z
+  note: Delivery map
+  person: 33333333-3333-4333-8333-333333333333
+  personName: robinlee
+  project: delivery-app
+  source: manual
+  startedAt: 2026-10-19T07:30:00.000Z
+  updatedAt: 2026-10-19T14:30:00.000Z
+  updatedBy: 33333333-3333-4333-8333-333333333333
+schemaVersion: time-tracker.entry.v1

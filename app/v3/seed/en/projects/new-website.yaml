@@ -1,0 +1,7 @@
+id: new-website
+record:
+  archived: false
+  billable: true
+  client: example-bistro
+  name: New website
+schemaVersion: time-tracker.project.v1

@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000072
+record:
+  autoStoppedAt: null
+  endedAt: 2026-11-05T14:00:00.000Z
+  note: Invoicing and paperwork
+  person: 11111111-1111-4111-8111-111111111111
+  personName: alexmorgan
+  project: internal-operations
+  source: manual
+  startedAt: 2026-11-05T12:00:00.000Z
+  updatedAt: 2026-11-05T14:00:00.000Z
+  updatedBy: 11111111-1111-4111-8111-111111111111
+schemaVersion: time-tracker.entry.v1

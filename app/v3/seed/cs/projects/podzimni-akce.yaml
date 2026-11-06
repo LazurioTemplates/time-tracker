@@ -1,0 +1,7 @@
+id: podzimni-akce
+record:
+  archived: true
+  billable: true
+  client: example-bistro
+  name: Podzimní akce
+schemaVersion: time-tracker.project.v1

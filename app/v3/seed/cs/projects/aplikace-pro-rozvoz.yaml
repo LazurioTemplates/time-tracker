@@ -1,0 +1,7 @@
+id: aplikace-pro-rozvoz
+record:
+  archived: false
+  billable: true
+  client: example-logistics
+  name: Aplikace pro rozvoz
+schemaVersion: time-tracker.project.v1

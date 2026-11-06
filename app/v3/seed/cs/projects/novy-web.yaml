@@ -1,0 +1,7 @@
+id: novy-web
+record:
+  archived: false
+  billable: true
+  client: example-bistro
+  name: Nový web
+schemaVersion: time-tracker.project.v1
