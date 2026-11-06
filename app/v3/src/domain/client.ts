@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CLIENT_SCHEMA_VERSION = "time-client.v1";
+export const CLIENT_SCHEMA_VERSION = "time-tracker.client.v1";
 
 /** A client the Organization works for; projects name it. */
 export const client = z.strictObject({

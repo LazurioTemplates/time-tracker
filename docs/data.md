@@ -16,9 +16,9 @@ definition; `templates/data-repo/schemas/` is generated from them.
 
 | Collection | `schemaVersion` | id | record |
 | --- | --- | --- | --- |
-| `clients` | `time-client.v1` | a slug from the name (`example-bistro`) | `name`, `archived` |
-| `projects` | `time-project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived` |
-| `entries` | `time-entry.v1` | a lowercase UUID | `person` (Lazurio subject), `personName` (username, or `null`), `project`, `startedAt`, `endedAt` (`null` while running), `note`, `source` (`timer` or `manual`), `autoStoppedAt`, `updatedAt`, `updatedBy` (subject, or `null` from inside the Environment) |
+| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived` |
+| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived` |
+| `entries` | `time-tracker.entry.v1` | a lowercase UUID | `person` (Lazurio subject), `personName` (username, or `null`), `project`, `startedAt`, `endedAt` (`null` while running), `note`, `source` (`timer` or `manual`), `autoStoppedAt`, `updatedAt`, `updatedBy` (subject, or `null` from inside the Environment) |
 
 ### Rules across records
 

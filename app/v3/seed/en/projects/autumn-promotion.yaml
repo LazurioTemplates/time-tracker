@@ -4,4 +4,4 @@ record:
   billable: true
   client: example-bistro
   name: Autumn promotion
-schemaVersion: time-project.v1
+schemaVersion: time-tracker.project.v1

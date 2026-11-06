@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { instant, slugId, subject } from "./common.ts";
 
-export const ENTRY_SCHEMA_VERSION = "time-entry.v1";
+export const ENTRY_SCHEMA_VERSION = "time-tracker.entry.v1";
 
 /** How an entry came to be: a timer that ran, or a time written by hand. */
 export const SOURCES = ["timer", "manual"] as const;

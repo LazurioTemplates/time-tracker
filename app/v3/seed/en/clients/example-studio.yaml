@@ -2,4 +2,4 @@ id: example-studio
 record:
   archived: false
   name: Example Studio
-schemaVersion: time-client.v1
+schemaVersion: time-tracker.client.v1

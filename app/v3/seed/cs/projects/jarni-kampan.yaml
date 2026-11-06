@@ -4,4 +4,4 @@ record:
   billable: true
   client: example-studio
   name: Jarní kampaň
-schemaVersion: time-project.v1
+schemaVersion: time-tracker.project.v1

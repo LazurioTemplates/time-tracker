@@ -30,30 +30,46 @@ describe("data repository template", () => {
     const documents = [
       ...sample.entries
         .slice(0, 5)
-        .map((row) => ({ schemaVersion: "time-entry.v1", id: row.id, record: row.value })),
-      { schemaVersion: "time-entry.v1", id, record: newEntry() },
-      { schemaVersion: "time-entry.v2", id, record: newEntry() },
-      { schemaVersion: "time-entry.v1", id: "NOT-A-UUID", record: newEntry() },
-      { schemaVersion: "time-entry.v1", id, record: { ...newEntry(), extra: 1 } },
-      { schemaVersion: "time-entry.v1", id, record: { ...newEntry(), source: "guess" } },
-      { schemaVersion: "time-entry.v1", id, record: { ...newEntry(), note: "x".repeat(501) } },
-      { schemaVersion: "time-entry.v1", id, record: { ...newEntry(), startedAt: "yesterday" } },
-      { schemaVersion: "time-entry.v1", id, record: { ...newEntry(), person: "alexmorgan" } },
+        .map((row) => ({ schemaVersion: "time-tracker.entry.v1", id: row.id, record: row.value })),
+      { schemaVersion: "time-tracker.entry.v1", id, record: newEntry() },
+      { schemaVersion: "time-tracker.entry.v2", id, record: newEntry() },
+      { schemaVersion: "time-tracker.entry.v1", id: "NOT-A-UUID", record: newEntry() },
+      { schemaVersion: "time-tracker.entry.v1", id, record: { ...newEntry(), extra: 1 } },
+      { schemaVersion: "time-tracker.entry.v1", id, record: { ...newEntry(), source: "guess" } },
+      {
+        schemaVersion: "time-tracker.entry.v1",
+        id,
+        record: { ...newEntry(), note: "x".repeat(501) },
+      },
+      {
+        schemaVersion: "time-tracker.entry.v1",
+        id,
+        record: { ...newEntry(), startedAt: "yesterday" },
+      },
+      {
+        schemaVersion: "time-tracker.entry.v1",
+        id,
+        record: { ...newEntry(), person: "alexmorgan" },
+      },
     ];
     for (const value of documents)
       expect(check(entries, value).length === 0).toBe(entryDocument.safeParse(value).success);
     const projects = schema("projects.schema.json");
     const project = { name: "Web", client: null, billable: true, archived: false };
     for (const value of [
-      { schemaVersion: "time-project.v1", id: "web", record: project },
-      { schemaVersion: "time-project.v1", id: "Web!", record: project },
-      { schemaVersion: "time-project.v1", id: "web", record: { ...project, name: "" } },
-      { schemaVersion: "time-project.v1", id: "web", record: { ...project, billable: "yes" } },
+      { schemaVersion: "time-tracker.project.v1", id: "web", record: project },
+      { schemaVersion: "time-tracker.project.v1", id: "Web!", record: project },
+      { schemaVersion: "time-tracker.project.v1", id: "web", record: { ...project, name: "" } },
+      {
+        schemaVersion: "time-tracker.project.v1",
+        id: "web",
+        record: { ...project, billable: "yes" },
+      },
     ])
       expect(check(projects, value).length === 0).toBe(
         z
           .strictObject({
-            schemaVersion: z.literal("time-project.v1"),
+            schemaVersion: z.literal("time-tracker.project.v1"),
             id: collections.projects.id,
             record: collections.projects.record,
           })

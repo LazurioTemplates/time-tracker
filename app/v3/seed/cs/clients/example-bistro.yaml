@@ -2,4 +2,4 @@ id: example-bistro
 record:
   archived: false
   name: Example Bistro
-schemaVersion: time-client.v1
+schemaVersion: time-tracker.client.v1

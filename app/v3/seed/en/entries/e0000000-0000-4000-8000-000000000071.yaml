@@ -10,4 +10,4 @@ record:
   startedAt: 2026-11-05T07:30:00.000Z
   updatedAt: 2026-11-05T11:00:00.000Z
   updatedBy: 11111111-1111-4111-8111-111111111111
-schemaVersion: time-entry.v1
+schemaVersion: time-tracker.entry.v1

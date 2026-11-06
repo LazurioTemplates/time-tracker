@@ -40,7 +40,7 @@ describe("repository-db store", () => {
       const path = `data/entries/${NEW_ID}.yaml`;
       expect(existsSync(join(fixture.mountRoot, path))).toBe(true);
       expect(readFileSync(join(fixture.mountRoot, path), "utf8")).toContain(
-        "schemaVersion: time-entry.v1",
+        "schemaVersion: time-tracker.entry.v1",
       );
       const card = await store.draft();
       expect(card.records?.[0]?.technicalPath).toBe(path);
@@ -64,7 +64,7 @@ describe("repository-db store", () => {
       writeFileSync(
         join(fixture.mountRoot, "data/entries/f0000000-0000-4000-8000-0000000000aa.yaml"),
         toStableYaml({
-          schemaVersion: "time-entry.v1",
+          schemaVersion: "time-tracker.entry.v1",
           id: "f0000000-0000-4000-8000-0000000000aa",
           record: { project: "novy-web" },
         }),

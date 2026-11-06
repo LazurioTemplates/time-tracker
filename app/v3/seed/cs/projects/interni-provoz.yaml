@@ -4,4 +4,4 @@ record:
   billable: false
   client: null
   name: Interní provoz
-schemaVersion: time-project.v1
+schemaVersion: time-tracker.project.v1

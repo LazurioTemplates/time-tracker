@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "time-client.v1",
+  "$id": "time-tracker.client.v1",
   "title": "Time Tracker client",
   "$comment": "Generated from the Zod schemas of Time Tracker (app/v3/src/domain) by `bun run schema:export`. Do not edit.",
   "type": "object",
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "time-client.v1"
+      "const": "time-tracker.client.v1"
     },
     "id": {
       "type": "string",

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { slugId } from "./common.ts";
 
-export const PROJECT_SCHEMA_VERSION = "time-project.v1";
+export const PROJECT_SCHEMA_VERSION = "time-tracker.project.v1";
 
 /** A project people record time on. */
 export const project = z.strictObject({

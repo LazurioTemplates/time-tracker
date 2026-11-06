@@ -8,9 +8,9 @@ change as a draft; publishing it makes one commit here.
 
 | Directory | Record | Schema |
 | --- | --- | --- |
-| `data/clients/<id>.yaml` | a client | `schemas/clients.schema.json` (`time-client.v1`) |
-| `data/projects/<id>.yaml` | a project | `schemas/projects.schema.json` (`time-project.v1`) |
-| `data/entries/<id>.yaml` | a time entry | `schemas/entries.schema.json` (`time-entry.v1`) |
+| `data/clients/<id>.yaml` | a client | `schemas/clients.schema.json` (`time-tracker.client.v1`) |
+| `data/projects/<id>.yaml` | a project | `schemas/projects.schema.json` (`time-tracker.project.v1`) |
+| `data/entries/<id>.yaml` | a time entry | `schemas/entries.schema.json` (`time-tracker.entry.v1`) |
 
 The schemas are generated from the Zod schemas of the Module
 (`bun run schema:export` in its `app/v3`); never edit them here. `bun
