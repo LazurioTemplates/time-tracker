@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { weekStart } from "../../domain/calendar.ts";
-import { durationMs, effective, entryDay } from "../../domain/time.ts";
+import { durationMs, effective, entryDay, needsEndCheck } from "../../domain/time.ts";
 import { api, newId, type StoredEntry } from "../api.ts";
 import { Notice, ProjectOptions, useNames } from "../components/common.tsx";
 import { EntryList } from "../components/EntryList.tsx";
@@ -42,7 +42,7 @@ export function TodayPage() {
     .filter((row) => entryDay(row.value, policy) === today)
     .reduce((sum, row) => sum + durationMs(row.value, now, policy), 0);
   const weekMs = own.reduce((sum, row) => sum + durationMs(row.value, now, policy), 0);
-  const autoStopped = own.filter((row) => effective(row.value, now, policy).autoStoppedAt);
+  const autoStopped = own.filter((row) => needsEndCheck(row.value, now, policy));
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -80,76 +80,82 @@ export function TodayPage() {
         </Notice>
       ) : null}
       <div className="tt-today">
-        <div className={`card tt-timer${running ? " tt-timer-running" : ""}`}>
-          {!self ? (
-            <>
-              <h2 className="tt-card-title">{t.today.timer}</h2>
-              <p className="tt-muted">{t.today.timerNoPerson}</p>
-            </>
-          ) : running ? (
-            <>
-              <p className="eyebrow">{t.today.measuring}</p>
-              <h2 className="tt-card-title">
-                {names.project(running.value.project)}
-                <span className="tt-entry-client"> · {names.client(running.value.project)}</span>
-              </h2>
-              {running.value.note ? <p className="tt-muted">{running.value.note}</p> : null}
-              <p className="tt-stopwatch" role="timer" aria-label={t.today.elapsed}>
-                {stopwatch(durationMs(running.value, now, policy))}
-              </p>
-              <p className="tt-muted">
-                {t.today.since(fmt.time(running.value.startedAt), policy.timerLimitHours)}
-              </p>
-              <button
-                type="button"
-                className="btn btn-primary tt-wide"
-                disabled={busy}
-                onClick={() => void run(() => api.stop(running.id, running.revision))}
-              >
-                {busy ? t.saving : t.today.stop}
-              </button>
-            </>
-          ) : (
-            <form onSubmit={start}>
-              <h2 className="tt-card-title">{t.today.question}</h2>
-              <div className="field">
-                <label htmlFor="timer-project">{t.today.project}</label>
-                <select
-                  id="timer-project"
-                  required
-                  value={chosen}
-                  onChange={(e) => setProject(e.target.value)}
+        <div className="tt-today-main">
+          <div className={`card tt-timer${running ? " tt-timer-running" : ""}`}>
+            {!self ? (
+              <>
+                <h2 className="tt-card-title">{t.today.timer}</h2>
+                <p className="tt-muted">{t.today.timerNoPerson}</p>
+              </>
+            ) : running ? (
+              <>
+                <p className="eyebrow">{t.today.measuring}</p>
+                <h2 className="tt-card-title">
+                  {names.project(running.value.project)}
+                  <span className="tt-entry-client"> · {names.client(running.value.project)}</span>
+                </h2>
+                {running.value.note ? <p className="tt-muted">{running.value.note}</p> : null}
+                <p className="tt-stopwatch" role="timer" aria-label={t.today.elapsed}>
+                  {stopwatch(durationMs(running.value, now, policy))}
+                </p>
+                <p className="tt-muted">
+                  {t.today.since(fmt.time(running.value.startedAt), policy.timerLimitHours)}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary tt-wide"
+                  disabled={busy}
+                  onClick={() => void run(() => api.stop(running.id, running.revision))}
                 >
-                  {chosen ? null : <option value="">{t.today.noProjects}</option>}
-                  <ProjectOptions />
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="timer-note">
-                  {t.today.doing} <span className="optional">{t.field.optional}</span>
-                </label>
-                <input
-                  id="timer-note"
-                  maxLength={500}
-                  placeholder={t.today.placeholder}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary tt-wide" disabled={busy || !chosen}>
-                {busy ? t.today.starting : t.today.start}
-              </button>
-            </form>
-          )}
-        </div>
-        <div className="tt-metrics">
-          <div className="card tt-metric">
-            <span className="eyebrow">{t.today.todayMetric}</span>
-            <p className="metric">{fmt.hours(todayMs)}</p>
+                  {busy ? t.saving : t.today.stop}
+                </button>
+              </>
+            ) : (
+              <form onSubmit={start}>
+                <h2 className="tt-card-title">{t.today.question}</h2>
+                <div className="field">
+                  <label htmlFor="timer-project">{t.today.project}</label>
+                  <select
+                    id="timer-project"
+                    required
+                    value={chosen}
+                    onChange={(e) => setProject(e.target.value)}
+                  >
+                    {chosen ? null : <option value="">{t.today.noProjects}</option>}
+                    <ProjectOptions />
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="timer-note">
+                    {t.today.doing} <span className="optional">{t.field.optional}</span>
+                  </label>
+                  <input
+                    id="timer-note"
+                    maxLength={500}
+                    placeholder={t.today.placeholder}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary tt-wide"
+                  disabled={busy || !chosen}
+                >
+                  {busy ? t.today.starting : t.today.start}
+                </button>
+              </form>
+            )}
           </div>
-          <div className="card tt-metric">
-            <span className="eyebrow">{t.today.weekMetric}</span>
-            <p className="metric">{fmt.hours(weekMs)}</p>
+          <div className="tt-metrics">
+            <div className="card tt-metric">
+              <span className="eyebrow">{t.today.todayMetric}</span>
+              <p className="metric">{fmt.hours(todayMs)}</p>
+            </div>
+            <div className="card tt-metric">
+              <span className="eyebrow">{t.today.weekMetric}</span>
+              <p className="metric">{fmt.hours(weekMs)}</p>
+            </div>
           </div>
         </div>
         <ManualEntry defaultProject={defaultProject} />

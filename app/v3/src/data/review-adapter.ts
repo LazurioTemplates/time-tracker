@@ -14,9 +14,27 @@ import { COLLECTION_NAMES, type CollectionName } from "../domain/collections.ts"
 import type { Policy } from "../domain/policy.ts";
 import { type Language, messages } from "../language/messages.ts";
 
-/** Bookkeeping fields every save changes; the review leaves them out. */
-const HIDDEN = new Set(["updatedAt", "updatedBy"]);
+/** Bookkeeping fields every save changes, and the subject the name stands for; the review leaves them out. */
+const HIDDEN = new Set(["updatedAt", "updatedBy", "person"]);
 const MOMENTS = new Set(["startedAt", "endedAt", "autoStoppedAt"]);
+/** The order a reviewer reads the fields in; the engine lists them by key. */
+const ORDER = [
+  "name",
+  "client",
+  "billable",
+  "archived",
+  "personName",
+  "project",
+  "startedAt",
+  "endedAt",
+  "autoStoppedAt",
+  "note",
+  "source",
+];
+const rank = (fieldPath: string) => {
+  const index = ORDER.indexOf(fieldPath.split("/")[1] ?? "");
+  return index === -1 ? ORDER.length : index;
+};
 
 /** Names the review shows instead of ids. */
 export interface ReviewNames {
@@ -100,9 +118,12 @@ export function reviewResource(input: {
     return fallback;
   };
   const diff = structuralDiff(before ?? {}, after ?? {}, { maxFields: 16 });
-  const fields: ReviewFieldSummary[] = diff.fields.flatMap((field) => {
+  const sorted = [...diff.fields].sort((a, b) => rank(a.fieldPath) - rank(b.fieldPath));
+  const fields: ReviewFieldSummary[] = sorted.flatMap((field) => {
     const key = field.fieldPath.split("/")[1] ?? "";
     if (HIDDEN.has(key)) return [];
+    // A field that is empty before and after (a new entry without an automatic stop) says nothing.
+    if ((before?.[key] ?? null) === null && (after?.[key] ?? null) === null) return [];
     const beforeSummary = show(key, before?.[key], field.beforeSummary);
     const afterSummary = show(key, after?.[key], field.afterSummary);
     return [

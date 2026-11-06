@@ -49,8 +49,14 @@ describe("the design system", () => {
       "",
     );
     expect(css.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(/gi) ?? []).toEqual([]);
-    // Every own class is the App's (`tt-`), so none overrides a component of the design system by accident.
-    const own = [...css.matchAll(/^\.([a-z][a-z0-9-]*)/gm)].map((match) => match[1]);
-    expect(own.filter((name) => !name?.startsWith("tt-"))).toEqual(["app-nav", "field", "notice"]);
+    // The App's own classes start with `tt-`. It touches only these classes of
+    // the design system: the frame's height and links, selects in a field
+    // (which the design system leaves unstyled) and the space under a notice.
+    const touched = new Set(
+      [...css.matchAll(/^\.([a-z][a-z0-9-]*)/gm)]
+        .map((match) => match[1] ?? "")
+        .filter((name) => !name.startsWith("tt-")),
+    );
+    expect([...touched].sort()).toEqual(["app", "app-nav", "field", "notice"]);
   });
 });

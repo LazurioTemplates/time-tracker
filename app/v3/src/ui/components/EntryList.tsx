@@ -1,4 +1,4 @@
-import { durationMs, effective, entryDay } from "../../domain/time.ts";
+import { durationMs, effective, entryDay, needsEndCheck } from "../../domain/time.ts";
 import type { StoredEntry } from "../api.ts";
 import { personLabel, useApp } from "../context.ts";
 import { useNames } from "./common.tsx";
@@ -59,7 +59,7 @@ export function EntryList({
                       {running ? (
                         <span className="badge badge-running">{t.entry.running}</span>
                       ) : null}
-                      {value.autoStoppedAt ? (
+                      {needsEndCheck(row.value, now, policy) ? (
                         <span className="badge badge-hypothesis">{t.entry.autoStopped}</span>
                       ) : null}
                       {row.pending ? (

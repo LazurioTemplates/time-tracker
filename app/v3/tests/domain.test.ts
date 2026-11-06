@@ -12,7 +12,7 @@ import { slugFor } from "../src/domain/common.ts";
 import { entriesCsv, summaryCsv } from "../src/domain/csv.ts";
 import { knownPeople, missingDays, rangeOf, shiftRange, summarize } from "../src/domain/report.ts";
 import { checkRules } from "../src/domain/rules.ts";
-import { durationMs, effective, hoursText } from "../src/domain/time.ts";
+import { durationMs, effective, hoursText, needsEndCheck } from "../src/domain/time.ts";
 import { parseRoute } from "../src/ui/routes.ts";
 import { ALEX, JAMIE, NOW, newEntry, POLICY, ROBIN, sampleData } from "./support/seed.ts";
 
@@ -305,5 +305,22 @@ describe("the English example and export", () => {
       );
     expect(week(sample, "en").totalMs).toBe(week(czech, "cs").totalMs);
     expect(week(sample, "en").clients.map((row) => row.name)).toContain("Own work");
+  });
+});
+
+describe("a forgotten timer", () => {
+  test("needs its end checked until someone corrects it", () => {
+    const forgotten = newEntry({
+      startedAt: "2026-11-05T07:00:00.000Z",
+      endedAt: null,
+      source: "timer",
+    });
+    expect(needsEndCheck(forgotten, NOW, POLICY)).toBe(true);
+    const stopped = effective(forgotten, NOW, POLICY);
+    expect(needsEndCheck(stopped, NOW, POLICY)).toBe(true);
+    const corrected = { ...stopped, endedAt: "2026-11-05T15:30:00.000Z" };
+    expect(corrected.autoStoppedAt).not.toBeNull();
+    expect(needsEndCheck(corrected, NOW, POLICY)).toBe(false);
+    expect(needsEndCheck(newEntry(), NOW, POLICY)).toBe(false);
   });
 });

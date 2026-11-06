@@ -4,11 +4,13 @@
    the toolbar and the components (.btn, .field, .card, .badge, .table,
    .dialog, .notice). This file adds only what the App needs beyond them, in
    classes that start with `tt-`, and every value comes from the design
-   tokens; tests/design-system.test.ts refuses a literal colour. */
+   tokens; tests/design-system.test.ts refuses a literal colour. Where it
+   changes a class of the design system it names both, so the rule wins
+   whatever order the two stylesheets load in. */
 
 /* The App fills the window: the design system's example frame leaves room
    for its example strip, which the App does not have. */
-.tt-app {
+.app.tt-app {
   min-height: 100vh;
 }
 
@@ -122,6 +124,10 @@
   grid-column: span 2;
 }
 
+.tt-field-row-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .tt-check {
   display: flex;
   align-items: center;
@@ -130,13 +136,14 @@
   font: var(--type-body-sm);
 }
 
-.tt-inline-field {
+.field.tt-inline-field {
   display: flex;
   align-items: center;
+  width: auto;
   margin: 0;
 }
 
-.tt-inline-field select {
+.field.tt-inline-field select {
   width: auto;
 }
 
@@ -153,9 +160,9 @@
   align-items: start;
 }
 
-.tt-today .tt-manual {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+.tt-today-main {
+  display: grid;
+  gap: var(--space-4);
 }
 
 .tt-timer-running {
@@ -187,6 +194,7 @@
 
 .tt-metric .metric {
   margin: 0;
+  white-space: nowrap;
 }
 
 /* ---------- Entries ---------- */
@@ -590,11 +598,6 @@
   .tt-today,
   .tt-report-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tt-today .tt-manual {
-    grid-column: auto;
-    grid-row: auto;
   }
 
   .tt-metrics-4 {

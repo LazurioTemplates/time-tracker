@@ -17,7 +17,8 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
     day: today,
     from: "09:00",
     to: "10:00",
-    project: defaultProject,
+    // Empty until the person picks one: the default follows their last project.
+    project: "",
     note: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -76,18 +77,18 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
           </select>
         </div>
       ) : null}
-      <div className="tt-field-row">
-        <div className="field">
-          <label htmlFor="manual-day">{t.field.day}</label>
-          <input
-            id="manual-day"
-            type="date"
-            required
-            max={today}
-            value={form.day}
-            onChange={(e) => setForm({ ...form, day: e.target.value })}
-          />
-        </div>
+      <div className="field">
+        <label htmlFor="manual-day">{t.field.day}</label>
+        <input
+          id="manual-day"
+          type="date"
+          required
+          max={today}
+          value={form.day}
+          onChange={(e) => setForm({ ...form, day: e.target.value })}
+        />
+      </div>
+      <div className="tt-field-row tt-field-row-2">
         <div className="field">
           <label htmlFor="manual-from">{t.field.from}</label>
           <input

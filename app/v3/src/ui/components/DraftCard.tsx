@@ -11,6 +11,9 @@ import { Notice } from "./common.tsx";
  * own card speaks Czech only. The records are worded by the App's review
  * adapter. Conflicts are resolved by an agent or a developer, never here.
  */
+/** The engine marks a value that is not there with a dash. */
+const shown = (value: string) => value !== "" && value !== "—";
+
 export function DraftCard() {
   const { changed, t } = useApp();
   const [card, setCard] = useState<DraftPanelInput | null>(null);
@@ -108,9 +111,9 @@ export function DraftCard() {
                     <div key={field.fieldPath}>
                       <dt>{field.label}</dt>
                       <dd>
-                        {field.before ? <del>{field.before}</del> : null}
-                        {field.before && field.after ? " → " : null}
-                        {field.after ? <ins>{field.after}</ins> : null}
+                        {shown(field.before) ? <del>{field.before}</del> : null}
+                        {shown(field.before) && shown(field.after) ? " → " : null}
+                        {shown(field.after) ? <ins>{field.after}</ins> : null}
                       </dd>
                     </div>
                   ))}

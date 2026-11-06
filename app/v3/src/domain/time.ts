@@ -17,6 +17,16 @@ export function effective(value: Entry, now: number, policy: Policy): Entry {
   return { ...value, endedAt: end, autoStoppedAt: end };
 }
 
+/**
+ * Whether the entry still ends where a forgotten timer stopped by itself: its
+ * real end is unknown until someone sets it. A corrected entry keeps
+ * `autoStoppedAt` as a trace but no longer needs a check.
+ */
+export function needsEndCheck(value: Entry, now: number, policy: Policy): boolean {
+  const current = effective(value, now, policy);
+  return current.autoStoppedAt !== null && current.endedAt === current.autoStoppedAt;
+}
+
 export function isRunning(value: Entry, now: number, policy: Policy): boolean {
   return effective(value, now, policy).endedAt === null;
 }

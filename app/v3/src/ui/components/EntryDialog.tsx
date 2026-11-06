@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { localDay, localTime } from "../../domain/calendar.ts";
-import { effective } from "../../domain/time.ts";
+import { effective, needsEndCheck } from "../../domain/time.ts";
 import { api, type StoredEntry } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
 import { Notice, ProjectOptions } from "./common.tsx";
@@ -78,7 +78,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
           </div>
         </div>
         <div className="dialog-body">
-          {value.autoStoppedAt ? (
+          {needsEndCheck(entry.value, now, session.policy) ? (
             <Notice tone="warning" title={t.dialog.autoStoppedTitle}>
               {t.dialog.autoStoppedText(session.policy.timerLimitHours)}
             </Notice>
