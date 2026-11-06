@@ -1,7 +1,7 @@
 // Read-only readiness of the preparation (Lazurio Module Standard,
-// `check_script`). The Vite dev server needs no build; the App is prepared
-// when every dependency of this package is installed. Exit 0 when prepared,
-// 1 otherwise.
+// `check_script`): every dependency of this package is installed. The client
+// build of the built version is the Platform's `build_script`, never a
+// preparation step. Exit 0 when prepared, 1 otherwise.
 import { resolve } from "node:path";
 import manifest from "../package.json";
 

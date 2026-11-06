@@ -1,0 +1,7 @@
+id: delivery-app
+record:
+  archived: false
+  billable: true
+  client: example-logistics
+  name: Delivery app
+schemaVersion: time-project.v1

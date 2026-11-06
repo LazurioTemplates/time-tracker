@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { z } from "zod";
-import { validateDataDirectory } from "../src/validate-data";
+import { validateDataDirectory } from "../src/validate-data.ts";
 
 const specs = {
   notes: { schemaVersion: "note.v1", record: z.object({ title: z.string().min(1) }) },
@@ -23,7 +23,11 @@ function withData(documents: Record<string, string>, run: (root: string) => void
 }
 
 test("the records in seed/ match the schemas of src/domain/collections.ts", () => {
-  expect(validateDataDirectory("seed").problems).toEqual([]);
+  for (const language of ["cs", "en"]) {
+    const check = validateDataDirectory(resolve(import.meta.dir, "..", "seed", language));
+    expect(check.problems).toEqual([]);
+    expect(check.documents).toBeGreaterThan(80);
+  }
 });
 
 test("a record that matches its collection's schema passes", () => {

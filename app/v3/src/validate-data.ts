@@ -14,7 +14,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { type CollectionSpec, collections } from "./domain/collections";
+import { type CollectionSpec, collections } from "./domain/collections.ts";
 
 export type DataCheck = Readonly<{ documents: number; problems: readonly string[] }>;
 
@@ -74,6 +74,8 @@ function validateDocument(path: string, id: string, spec: CollectionSpec): strin
     problems.push(
       `${path}: id is ${JSON.stringify(envelope.id)}, the file name says ${JSON.stringify(id)}`,
     );
+  if (spec.id && !spec.id.safeParse(id).success)
+    problems.push(`${path}: the id ${JSON.stringify(id)} does not have the collection's shape`);
   const record = spec.record.safeParse(envelope.record);
   if (!record.success) problems.push(`${path}: ${z.prettifyError(record.error)}`);
   return problems;

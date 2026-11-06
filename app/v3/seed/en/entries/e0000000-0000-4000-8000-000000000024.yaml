@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000024
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-22T13:30:00.000Z
+  note: Changes after feedback
+  person: 22222222-2222-4222-8222-222222222222
+  personName: jamiechen
+  project: spring-campaign
+  source: manual
+  startedAt: 2026-10-22T11:00:00.000Z
+  updatedAt: 2026-10-22T13:30:00.000Z
+  updatedBy: 22222222-2222-4222-8222-222222222222
+schemaVersion: time-entry.v1

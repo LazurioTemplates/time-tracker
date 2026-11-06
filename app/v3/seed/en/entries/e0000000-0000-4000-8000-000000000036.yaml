@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000036
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-26T08:15:00.000Z
+  note: Weekly meeting
+  person: 33333333-3333-4333-8333-333333333333
+  personName: robinlee
+  project: internal-operations
+  source: manual
+  startedAt: 2026-10-26T07:30:00.000Z
+  updatedAt: 2026-10-26T08:15:00.000Z
+  updatedBy: 33333333-3333-4333-8333-333333333333
+schemaVersion: time-entry.v1

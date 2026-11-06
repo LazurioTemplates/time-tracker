@@ -1,0 +1,5 @@
+id: example-studio
+record:
+  archived: false
+  name: Example Studio
+schemaVersion: time-client.v1

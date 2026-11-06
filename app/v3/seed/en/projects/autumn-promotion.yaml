@@ -1,0 +1,7 @@
+id: autumn-promotion
+record:
+  archived: true
+  billable: true
+  client: example-bistro
+  name: Autumn promotion
+schemaVersion: time-project.v1

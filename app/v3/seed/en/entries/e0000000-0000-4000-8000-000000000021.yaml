@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000021
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-22T10:00:00.000Z
+  note: Campaign material
+  person: 11111111-1111-4111-8111-111111111111
+  personName: alexmorgan
+  project: spring-campaign
+  source: timer
+  startedAt: 2026-10-22T06:30:00.000Z
+  updatedAt: 2026-10-22T10:00:00.000Z
+  updatedBy: 11111111-1111-4111-8111-111111111111
+schemaVersion: time-entry.v1

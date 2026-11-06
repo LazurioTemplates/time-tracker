@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000063
+record:
+  autoStoppedAt: null
+  endedAt: 2026-11-03T11:00:00.000Z
+  note: Food photos for the website
+  person: 22222222-2222-4222-8222-222222222222
+  personName: jamiechen
+  project: new-website
+  source: timer
+  startedAt: 2026-11-03T08:00:00.000Z
+  updatedAt: 2026-11-03T11:00:00.000Z
+  updatedBy: 22222222-2222-4222-8222-222222222222
+schemaVersion: time-entry.v1

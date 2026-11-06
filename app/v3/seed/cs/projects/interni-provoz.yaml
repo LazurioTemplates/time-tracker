@@ -1,0 +1,7 @@
+id: interni-provoz
+record:
+  archived: false
+  billable: false
+  client: null
+  name: Interní provoz
+schemaVersion: time-project.v1
