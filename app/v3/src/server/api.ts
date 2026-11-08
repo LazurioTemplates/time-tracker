@@ -6,7 +6,7 @@ import { type Client, client } from "../domain/client.ts";
 import { clock, day, entryId, slugFor, slugId, subject } from "../domain/common.ts";
 import { entriesCsv, summaryCsv } from "../domain/csv.ts";
 import type { Entry } from "../domain/entry.ts";
-import { keptMoments, OCCURRENCES, resolveInterval, type WallTimes } from "../domain/interval.ts";
+import { OCCURRENCES, resolveInterval, type WallTimes } from "../domain/interval.ts";
 import type { Policy } from "../domain/policy.ts";
 import { type Project, project } from "../domain/project.ts";
 import {
@@ -236,12 +236,13 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     year: "numeric",
   });
   /**
-   * The moments of the wall-clock times a person entered; `kept` are stored
-   * moments whose times they left unchanged (`domain/interval.ts`). A time
-   * the clocks skip is refused, one they repeat needs its occurrence named.
+   * The moments of the wall-clock times a person entered; an edit starts from
+   * the stored entry, whose moments stay where its times were left as shown
+   * (`domain/interval.ts`). A time the clocks skip is refused, one they
+   * repeat needs its occurrence named when both moments can be meant.
    */
-  function interval(times: WallTimes, kept: { startedAt?: string; endedAt?: string } = {}) {
-    const result = resolveInterval(times, policy.timeZone, kept);
+  function interval(times: WallTimes, stored?: { startedAt: string; endedAt: string | null }) {
+    const result = resolveInterval(times, policy.timeZone, stored);
     if (result.ok) return { startedAt: result.startedAt, endedAt: result.endedAt };
     const shownDay = dateText.format(Date.parse(`${result.day}T00:00:00Z`));
     if (result.problem === "order") throw new StoreError("invalid_record", t.server.endAfterStart);
@@ -423,15 +424,13 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       if (input.to === null && current.endedAt !== null)
         throw new StoreError("bad_request", t.server.endNeeded);
       const own = viewer.person?.subject === found.value.person;
-      // Times the person left as they were shown keep their stored moments exactly.
-      const kept = keptMoments(current, input, policy.timeZone);
       const value: Entry = {
         ...current,
         ...(own && viewer.person
           ? { personName: viewer.person.username ?? current.personName }
           : {}),
         project: input.project,
-        ...interval(input, kept),
+        ...interval(input, current),
         note: input.note,
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,

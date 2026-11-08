@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { type Occurrence, resolveInterval } from "../../domain/interval.ts";
+import { changeWallTime, type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { api, newId } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
 import { Notice, ProjectOptions } from "./common.tsx";
@@ -92,7 +92,7 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
           required
           max={today}
           value={form.day}
-          onChange={(e) => setForm({ ...form, day: e.target.value })}
+          onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
         />
       </div>
       <div className="tt-field-row tt-field-row-2">
@@ -103,7 +103,7 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
             type="time"
             required
             value={form.from}
-            onChange={(e) => setForm({ ...form, from: e.target.value })}
+            onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
           />
         </div>
         <div className="field">
@@ -113,14 +113,14 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
             type="time"
             required
             value={form.to}
-            onChange={(e) => setForm({ ...form, to: e.target.value })}
+            onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
           />
         </div>
       </div>
       <TimeCheck
         id="manual"
         result={times}
-        occurrences={{ from: form.fromOccurrence, to: form.toOccurrence }}
+        chosen={{ from: form.fromOccurrence, to: form.toOccurrence }}
         onChoose={(field, value) =>
           setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: value })
         }

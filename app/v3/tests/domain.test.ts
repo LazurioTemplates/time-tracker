@@ -12,7 +12,7 @@ import {
 } from "../src/domain/calendar.ts";
 import { slugFor } from "../src/domain/common.ts";
 import { entriesCsv, summaryCsv } from "../src/domain/csv.ts";
-import { keptMoments, resolveInterval } from "../src/domain/interval.ts";
+import { changeWallTime, resolveInterval } from "../src/domain/interval.ts";
 import { knownPeople, missingDays, rangeOf, shiftRange, summarize } from "../src/domain/report.ts";
 import { checkRules } from "../src/domain/rules.ts";
 import { durationMs, effective, hoursText, needsEndCheck } from "../src/domain/time.ts";
@@ -329,11 +329,14 @@ describe("a forgotten timer", () => {
 });
 
 describe("wall-clock times and their moments", () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+
   test("a time the clocks skip has none, a time they repeat has two", () => {
     expect(localMoments("2026-03-29", "02:30", TZ)).toEqual([]);
-    expect(localMoments("2026-10-25", "02:30", TZ).map((ms) => new Date(ms).toISOString())).toEqual(
-      ["2026-10-25T00:30:00.000Z", "2026-10-25T01:30:00.000Z"],
-    );
+    expect(localMoments("2026-10-25", "02:30", TZ).map(iso)).toEqual([
+      "2026-10-25T00:30:00.000Z",
+      "2026-10-25T01:30:00.000Z",
+    ]);
     expect(localMoments("2026-11-06", "09:00", TZ)).toEqual([
       Date.parse("2026-11-06T08:00:00.000Z"),
     ]);
@@ -341,55 +344,164 @@ describe("wall-clock times and their moments", () => {
     expect(utcOffsetText(Date.parse("2026-10-25T01:30:00.000Z"), TZ)).toBe("UTC+01:00");
   });
 
-  test("an interval refuses a missing time, asks about a repeated one and never makes a day of equal times", () => {
+  test("a missing time is refused, a repeated one is asked about while both can be meant", () => {
     expect(resolveInterval({ day: "2026-03-29", from: "02:30", to: "04:00" }, TZ)).toMatchObject({
       ok: false,
       field: "from",
       problem: "missing",
     });
+    // From 01:00 both 02:30s come after the start: the person names one.
     expect(resolveInterval({ day: "2026-10-25", from: "01:00", to: "02:30" }, TZ)).toMatchObject({
       ok: false,
       field: "to",
       problem: "ambiguous",
+      to: {
+        moments: [Date.parse("2026-10-25T00:30:00.000Z"), Date.parse("2026-10-25T01:30:00.000Z")],
+      },
     });
     expect(
       resolveInterval(
         { day: "2026-10-25", from: "01:00", to: "02:30", toOccurrence: "earlier" },
         TZ,
       ),
-    ).toEqual({
+    ).toMatchObject({
       ok: true,
       startedAt: "2026-10-24T23:00:00.000Z",
       endedAt: "2026-10-25T00:30:00.000Z",
+      to: { occurrence: "earlier" },
+    });
+  });
+
+  test("across the repeated hour the end is the next moment its time shows, not the next day", () => {
+    // The first 02:50 to the second 02:10 is 20 minutes.
+    const repeated = resolveInterval(
+      {
+        day: "2026-10-25",
+        from: "02:50",
+        to: "02:10",
+        fromOccurrence: "earlier",
+        toOccurrence: "later",
+      },
+      TZ,
+    );
+    expect(repeated).toMatchObject({
+      ok: true,
+      startedAt: "2026-10-25T00:50:00.000Z",
+      endedAt: "2026-10-25T01:10:00.000Z",
+    });
+    // Without naming the end: after the first 02:50 only the second 02:10 can be meant that day.
+    expect(
+      resolveInterval(
+        { day: "2026-10-25", from: "02:50", to: "02:10", fromOccurrence: "earlier" },
+        TZ,
+      ),
+    ).toMatchObject({ ok: true, endedAt: "2026-10-25T01:10:00.000Z", to: { occurrence: "later" } });
+    // Naming the first 02:10, before the start, is refused rather than moved to the next day.
+    expect(
+      resolveInterval(
+        {
+          day: "2026-10-25",
+          from: "02:50",
+          to: "02:10",
+          fromOccurrence: "earlier",
+          toOccurrence: "earlier",
+        },
+        TZ,
+      ),
+    ).toMatchObject({ ok: false, field: "to", problem: "order" });
+    // After the second 02:50 the clock shows 02:10 next only on the next day: overnight.
+    expect(
+      resolveInterval(
+        { day: "2026-10-25", from: "02:50", to: "02:10", fromOccurrence: "later" },
+        TZ,
+      ),
+    ).toMatchObject({
+      ok: true,
+      startedAt: "2026-10-25T01:50:00.000Z",
+      endedAt: "2026-10-26T01:10:00.000Z",
+    });
+    // The first 02:30 to the second 02:30 is one hour, not a refusal.
+    expect(
+      resolveInterval(
+        { day: "2026-10-25", from: "02:30", to: "02:30", fromOccurrence: "earlier" },
+        TZ,
+      ),
+    ).toMatchObject({ ok: true, endedAt: "2026-10-25T01:30:00.000Z" });
+  });
+
+  test("on ordinary days an earlier end is overnight and an equal end is refused", () => {
+    expect(resolveInterval({ day: "2026-11-06", from: "22:00", to: "02:00" }, TZ)).toMatchObject({
+      ok: true,
+      startedAt: "2026-11-06T21:00:00.000Z",
+      endedAt: "2026-11-07T01:00:00.000Z",
     });
     expect(resolveInterval({ day: "2026-11-06", from: "18:00", to: "18:00" }, TZ)).toMatchObject({
       ok: false,
       problem: "order",
     });
-    // An end earlier on the clock than the start is on the next day.
-    expect(resolveInterval({ day: "2026-11-06", from: "22:00", to: "02:00" }, TZ)).toEqual({
+  });
+
+  test("an edit keeps the moments of times left as shown, unless another occurrence is named", () => {
+    const short = { startedAt: "2026-11-06T14:04:19.946Z", endedAt: "2026-11-06T14:04:40.000Z" };
+    const shown = { day: "2026-11-06", from: "15:04", to: "15:04" };
+    expect(resolveInterval(shown, TZ, short)).toMatchObject({ ok: true, ...short });
+    expect(resolveInterval({ ...shown, to: "16:00" }, TZ, short)).toMatchObject({
       ok: true,
-      startedAt: "2026-11-06T21:00:00.000Z",
-      endedAt: "2026-11-07T01:00:00.000Z",
+      startedAt: short.startedAt,
+      endedAt: "2026-11-06T15:00:00.000Z",
+    });
+    // The first 02:30 stays the first by default, and becomes the second when the person says so.
+    const first = { startedAt: "2026-10-25T00:30:15.000Z", endedAt: "2026-10-25T02:30:00.000Z" };
+    const autumn = { day: "2026-10-25", from: "02:30", to: "03:30" };
+    expect(resolveInterval(autumn, TZ, first)).toMatchObject({
+      ok: true,
+      ...first,
+      from: { occurrence: "earlier", kept: true },
+    });
+    expect(resolveInterval({ ...autumn, fromOccurrence: "earlier" }, TZ, first)).toMatchObject({
+      ok: true,
+      ...first,
+    });
+    expect(resolveInterval({ ...autumn, fromOccurrence: "later" }, TZ, first)).toMatchObject({
+      ok: true,
+      startedAt: "2026-10-25T01:30:00.000Z",
+      endedAt: first.endedAt,
+      from: { occurrence: "later", kept: false },
+    });
+    // A new start that brings the end back to the same day does not keep a next-day end.
+    const overnight = {
+      startedAt: "2026-11-05T21:00:00.000Z",
+      endedAt: "2026-11-06T01:00:00.000Z",
+    };
+    expect(
+      resolveInterval({ day: "2026-11-05", from: "01:00", to: "02:00" }, TZ, overnight),
+    ).toMatchObject({
+      ok: true,
+      startedAt: "2026-11-05T00:00:00.000Z",
+      endedAt: "2026-11-05T01:00:00.000Z",
     });
   });
 
-  test("times left as shown keep their stored moments; a changed one is built anew", () => {
-    const stored = { startedAt: "2026-11-06T14:04:19.946Z", endedAt: "2026-11-06T14:04:40.000Z" };
-    const shown = { day: "2026-11-06", from: "15:04", to: "15:04" };
-    expect(keptMoments(stored, shown, TZ)).toEqual(stored);
-    expect(resolveInterval(shown, TZ, keptMoments(stored, shown, TZ))).toEqual({
-      ok: true,
-      ...stored,
+  test("a choice of occurrence belongs to the day and time it was made for", () => {
+    const chosen = {
+      day: "2026-10-25",
+      from: "02:30",
+      to: "02:45",
+      fromOccurrence: "later" as const,
+      toOccurrence: "later" as const,
+    };
+    expect(changeWallTime(chosen, "to", "02:50")).toMatchObject({
+      fromOccurrence: "later",
+      toOccurrence: undefined,
     });
-    const later = { ...shown, to: "16:00" };
-    expect(resolveInterval(later, TZ, keptMoments(stored, later, TZ))).toEqual({
-      ok: true,
-      startedAt: stored.startedAt,
-      endedAt: "2026-11-06T15:00:00.000Z",
+    expect(changeWallTime(chosen, "from", "02:40")).toMatchObject({
+      fromOccurrence: undefined,
+      toOccurrence: undefined,
     });
-    // Another day moves the whole entry.
-    expect(keptMoments(stored, { ...shown, day: "2026-11-05" }, TZ)).toEqual({});
+    expect(changeWallTime(chosen, "day", "2026-10-26")).toMatchObject({
+      fromOccurrence: undefined,
+      toOccurrence: undefined,
+    });
   });
 });
 

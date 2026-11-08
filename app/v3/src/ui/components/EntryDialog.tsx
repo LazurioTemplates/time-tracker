@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { localDay, localTime } from "../../domain/calendar.ts";
-import { keptMoments, type Occurrence, resolveInterval } from "../../domain/interval.ts";
+import { changeWallTime, type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { effective, needsEndCheck } from "../../domain/time.ts";
 import { api, type StoredEntry } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
@@ -28,7 +28,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
   });
   // The same rule as the server: times left as shown keep their stored moments.
   const times = { ...form, to: form.to === "" ? null : form.to };
-  const checked = resolveInterval(times, tz, keptMoments(value, times, tz));
+  const checked = resolveInterval(times, tz, value);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -100,7 +100,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
                 type="date"
                 required
                 value={form.day}
-                onChange={(e) => setForm({ ...form, day: e.target.value })}
+                onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
               />
             </div>
             <div className="field">
@@ -110,7 +110,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
                 type="time"
                 required
                 value={form.from}
-                onChange={(e) => setForm({ ...form, from: e.target.value })}
+                onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
               />
             </div>
             <div className="field">
@@ -123,7 +123,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
                 type="time"
                 required={!running}
                 value={form.to}
-                onChange={(e) => setForm({ ...form, to: e.target.value })}
+                onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
               />
             </div>
           </div>
@@ -131,7 +131,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
             <TimeCheck
               id="edit"
               result={checked}
-              occurrences={{ from: form.fromOccurrence, to: form.toOccurrence }}
+              chosen={{ from: form.fromOccurrence, to: form.toOccurrence }}
               onChoose={(field, choice) =>
                 setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: choice })
               }

@@ -91,6 +91,8 @@ const cs = {
     occurrence: "Který výskyt",
     occurrenceOption: (first: boolean, offset: string) =>
       `${first ? "první" : "druhý"} (${offset})`,
+    willStore: (start: string, end: string, length: string) =>
+      `Uloží se ${start} – ${end}, celkem ${length} h.`,
   },
   saving: "Ukládám…",
   entry: {
@@ -440,6 +442,7 @@ const en: Messages = {
     stillRunning: "(empty = keeps running)",
     occurrence: "Which occurrence",
     occurrenceOption: (first, offset) => `${first ? "the first" : "the second"} (${offset})`,
+    willStore: (start, end, length) => `Saves ${start} – ${end}, ${length} h in total.`,
   },
   saving: "Saving…",
   entry: {

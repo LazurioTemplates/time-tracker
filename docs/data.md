@@ -37,16 +37,22 @@ checkout, and the Draft page shows the same check.
   months are counted in the Organization's time zone (`policy.timeZone` in
   `app/v3/src/instance/settings.ts`, `Europe/Prague` by default), on every
   device alike. An entry belongs to the day it starts on. A person enters a
-  day, a start and an end (`app/v3/src/domain/interval.ts`): an end earlier on
-  the clock than the start is on the next day, and an end equal to the start
-  is refused, never read as a whole day.
+  day, a start and an end (`app/v3/src/domain/interval.ts`); the end is the
+  first moment after the start at which the clock shows its time: later the
+  same day, or on the next day (22:00 to 02:00 runs overnight). An end equal
+  to the start is refused, never read as a whole day.
 - A time the clocks skip (02:30 on 29 March 2026 in Prague) is refused. A time
-  they repeat (02:30 on 25 October 2026) needs the person to name the
-  occurrence, `fromOccurrence` or `toOccurrence` `earlier` or `later`; the App
-  asks with the UTC offset of each.
+  they repeat (02:30 on 25 October 2026) is one of two moments, `earlier` or
+  `later` (`fromOccurrence`, `toOccurrence`): the person names it whenever
+  both can be meant. Across the repeated hour the end follows the same rule:
+  the first 02:50 to the second 02:10 is 20 minutes, the second 02:50 to 02:10
+  runs overnight. The forms keep the choice in view with the UTC offset of
+  each moment, clear it when its day or time changes, and show the moments an
+  entry will store before it is saved.
 - An edit keeps the stored moment of every time the person left as it was
   shown, to the millisecond and with its occurrence, so correcting a note or a
-  project never moves a start or an end.
+  project never moves a start or an end; naming the other occurrence moves it
+  on purpose.
 - Weeks run from Monday to Sunday (ISO weeks). Working days are Monday to
   Friday without the public holidays of the Czech Republic (Easter included);
   both are settings.

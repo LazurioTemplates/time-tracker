@@ -16,7 +16,9 @@ on the App generation `app/v3` and the stack profile `app-data@2026.11`.
 - Entries of the week by day, every entry with filters by period, person,
   client and project, and a dialog to correct or delete an entry. An edit
   keeps every time it does not change to the millisecond; a time the clocks
-  skip is refused and one they repeat asks which occurrence is meant.
+  skip is refused, one they repeat asks which occurrence is meant and keeps
+  the choice in view, and an interval across the repeated hour is counted
+  between its chosen moments.
 - Projects and clients, invoiced or the Organization's own work, archived
   without losing their history.
 - The overview of a week or a month: hours in total, to invoice and of the

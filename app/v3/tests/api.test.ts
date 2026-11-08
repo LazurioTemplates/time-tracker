@@ -472,4 +472,50 @@ describe("times the clocks skip or repeat", () => {
       endedAt: "2026-10-25T02:30:00.000Z",
     });
   });
+
+  test("an edit changes only the occurrence when the person names another one", async () => {
+    const { call } = setup();
+    const first = await call(
+      "user",
+      "POST",
+      "/api/entries",
+      manual({ day: "2026-10-25", from: "02:30", to: "03:30", fromOccurrence: "earlier" }),
+    );
+    expect(first.data.value).toMatchObject({ startedAt: "2026-10-25T00:30:00.000Z" });
+    const second = await call("user", "PUT", `/api/entries/${NEW_ID}`, {
+      revision: first.data.revision,
+      project: "jarni-kampan",
+      day: "2026-10-25",
+      from: "02:30",
+      to: "03:30",
+      fromOccurrence: "later",
+      note: "Noční nasazení",
+    });
+    expect(second.status).toBe(200);
+    expect(second.data.value).toMatchObject({
+      startedAt: "2026-10-25T01:30:00.000Z",
+      endedAt: "2026-10-25T02:30:00.000Z",
+    });
+  });
+
+  test("the first 02:50 to the second 02:10 is stored as 20 minutes", async () => {
+    const { call } = setup();
+    const answer = await call(
+      "user",
+      "POST",
+      "/api/entries",
+      manual({
+        day: "2026-10-25",
+        from: "02:50",
+        to: "02:10",
+        fromOccurrence: "earlier",
+        toOccurrence: "later",
+      }),
+    );
+    expect(answer.status).toBe(201);
+    expect(answer.data.value).toMatchObject({
+      startedAt: "2026-10-25T00:50:00.000Z",
+      endedAt: "2026-10-25T01:10:00.000Z",
+    });
+  });
 });
