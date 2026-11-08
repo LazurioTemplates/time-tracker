@@ -1,9 +1,11 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { localDay, localTime } from "../../domain/calendar.ts";
+import { keptMoments, type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { effective, needsEndCheck } from "../../domain/time.ts";
 import { api, type StoredEntry } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
 import { Notice, ProjectOptions } from "./common.tsx";
+import { TimeCheck } from "./TimeCheck.tsx";
 
 /**
  * Corrects one entry, in the design system's dialog: day, start, end,
@@ -21,7 +23,12 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
     to: value.endedAt ? localTime(value.endedAt, tz) : "",
     project: value.project,
     note: value.note,
+    fromOccurrence: undefined as Occurrence | undefined,
+    toOccurrence: undefined as Occurrence | undefined,
   });
+  // The same rule as the server: times left as shown keep their stored moments.
+  const times = { ...form, to: form.to === "" ? null : form.to };
+  const checked = resolveInterval(times, tz, keptMoments(value, times, tz));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -58,6 +65,8 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
         day: form.day,
         from: form.from,
         to: form.to || null,
+        ...(form.fromOccurrence ? { fromOccurrence: form.fromOccurrence } : {}),
+        ...(form.toOccurrence ? { toOccurrence: form.toOccurrence } : {}),
         note: form.note,
       }),
     );
@@ -118,6 +127,16 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
               />
             </div>
           </div>
+          {form.to || running ? (
+            <TimeCheck
+              id="edit"
+              result={checked}
+              occurrences={{ from: form.fromOccurrence, to: form.toOccurrence }}
+              onChoose={(field, choice) =>
+                setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: choice })
+              }
+            />
+          ) : null}
           <div className="field">
             <label htmlFor="edit-project">{t.field.project}</label>
             <select
@@ -170,7 +189,7 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
               <button type="button" className="btn" onClick={() => dialog.current?.close()}>
                 {t.dialog.cancel}
               </button>
-              <button type="submit" className="btn btn-primary" disabled={busy}>
+              <button type="submit" className="btn btn-primary" disabled={busy || !checked.ok}>
                 {busy ? t.saving : t.dialog.save}
               </button>
             </>

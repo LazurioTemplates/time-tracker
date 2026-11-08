@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { type Stored, StoreError, type TimeStore } from "../data/store.ts";
 import { isAdmin, mayUseEntry, type Viewer } from "../domain/access.ts";
-import { addDays, localDay, zonedMoment } from "../domain/calendar.ts";
+import { localDay } from "../domain/calendar.ts";
 import { type Client, client } from "../domain/client.ts";
 import { clock, day, entryId, slugFor, slugId, subject } from "../domain/common.ts";
 import { entriesCsv, summaryCsv } from "../domain/csv.ts";
 import type { Entry } from "../domain/entry.ts";
+import { keptMoments, OCCURRENCES, resolveInterval, type WallTimes } from "../domain/interval.ts";
 import type { Policy } from "../domain/policy.ts";
 import { type Project, project } from "../domain/project.ts";
 import {
@@ -51,6 +52,8 @@ const revision = z.string().min(1);
 
 const startInput = z.strictObject({ id: entryId, project: slugId, note });
 const stopInput = z.strictObject({ id: entryId, revision });
+/** Which of two moments a wall-clock time means when the clocks repeat it. */
+const occurrence = z.enum(OCCURRENCES).optional();
 const manualInput = z.strictObject({
   id: entryId,
   /** Whose time; an application admin may name another known person. */
@@ -59,6 +62,8 @@ const manualInput = z.strictObject({
   day,
   from: clock,
   to: clock,
+  fromOccurrence: occurrence,
+  toOccurrence: occurrence,
   note,
 });
 const editInput = z.strictObject({
@@ -68,6 +73,8 @@ const editInput = z.strictObject({
   from: clock,
   /** `null` keeps a running timer running. */
   to: clock.nullable(),
+  fromOccurrence: occurrence,
+  toOccurrence: occurrence,
   note,
 });
 const deleteInput = z.strictObject({ revision });
@@ -99,6 +106,8 @@ const STATUS_BY_CODE: Record<string, number> = {
   origin_refused: 403,
   not_found: 404,
   invalid_record: 422,
+  nonexistent_time: 422,
+  ambiguous_time: 409,
   validation_failed: 422,
   materialize_failed: 422,
   record_changed: 409,
@@ -220,14 +229,29 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     return people.find((row) => row.person === subjectId) ?? null;
   }
 
-  /** The moments of a day's wall-clock interval; an end at or before the start is the next day. */
-  function interval(dayText: string, from: string, to: string | null) {
-    const start = zonedMoment(dayText, from, policy.timeZone);
-    if (to === null) return { startedAt: new Date(start).toISOString(), endedAt: null };
-    let end = zonedMoment(dayText, to, policy.timeZone);
-    if (end <= start) end = zonedMoment(addDays(dayText, 1), to, policy.timeZone);
-    if (end <= start) throw new StoreError("invalid_record", t.server.endAfterStart);
-    return { startedAt: new Date(start).toISOString(), endedAt: new Date(end).toISOString() };
+  const dateText = new Intl.DateTimeFormat(t.locale, {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+  });
+  /**
+   * The moments of the wall-clock times a person entered; `kept` are stored
+   * moments whose times they left unchanged (`domain/interval.ts`). A time
+   * the clocks skip is refused, one they repeat needs its occurrence named.
+   */
+  function interval(times: WallTimes, kept: { startedAt?: string; endedAt?: string } = {}) {
+    const result = resolveInterval(times, policy.timeZone, kept);
+    if (result.ok) return { startedAt: result.startedAt, endedAt: result.endedAt };
+    const shownDay = dateText.format(Date.parse(`${result.day}T00:00:00Z`));
+    if (result.problem === "order") throw new StoreError("invalid_record", t.server.endAfterStart);
+    if (result.problem === "missing")
+      throw new StoreError("nonexistent_time", t.server.nonexistentTime(shownDay, result.time), [
+        { path: result.field, message: t.server.nonexistentTime(shownDay, result.time) },
+      ]);
+    throw new StoreError("ambiguous_time", t.server.ambiguousTime(shownDay, result.time), [
+      { path: result.field, message: t.server.ambiguousTime(shownDay, result.time) },
+    ]);
   }
 
   async function requireEntry(viewer: Viewer, id: string): Promise<Stored<Entry>> {
@@ -375,7 +399,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         person: person.person,
         personName: person.name,
         project: input.project,
-        ...interval(input.day, input.from, input.to),
+        ...interval(input),
         note: input.note,
         source: "manual",
         autoStoppedAt: null,
@@ -399,13 +423,15 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       if (input.to === null && current.endedAt !== null)
         throw new StoreError("bad_request", t.server.endNeeded);
       const own = viewer.person?.subject === found.value.person;
+      // Times the person left as they were shown keep their stored moments exactly.
+      const kept = keptMoments(current, input, policy.timeZone);
       const value: Entry = {
         ...current,
         ...(own && viewer.person
           ? { personName: viewer.person.username ?? current.personName }
           : {}),
         project: input.project,
-        ...interval(input.day, input.from, input.to),
+        ...interval(input, kept),
         note: input.note,
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,

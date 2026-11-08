@@ -1,7 +1,9 @@
 import { type FormEvent, useState } from "react";
+import { type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { api, newId } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
 import { Notice, ProjectOptions } from "./common.tsx";
+import { TimeCheck } from "./TimeCheck.tsx";
 
 /**
  * Time written by hand: a day, from, to, project and what was done. An
@@ -20,6 +22,8 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
     // Empty until the person picks one: the default follows their last project.
     project: "",
     note: "",
+    fromOccurrence: undefined as Occurrence | undefined,
+    toOccurrence: undefined as Occurrence | undefined,
   });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -29,6 +33,7 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
     ...people.filter((row) => row.person !== self?.subject),
   ];
   const project = form.project || defaultProject;
+  const times = resolveInterval(form, session.policy.timeZone);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -43,6 +48,8 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
         day: form.day,
         from: form.from,
         to: form.to,
+        ...(form.fromOccurrence ? { fromOccurrence: form.fromOccurrence } : {}),
+        ...(form.toOccurrence ? { toOccurrence: form.toOccurrence } : {}),
         note: form.note,
       });
       setSaved(true);
@@ -110,6 +117,14 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
           />
         </div>
       </div>
+      <TimeCheck
+        id="manual"
+        result={times}
+        occurrences={{ from: form.fromOccurrence, to: form.toOccurrence }}
+        onChoose={(field, value) =>
+          setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: value })
+        }
+      />
       <div className="field">
         <label htmlFor="manual-project">{t.field.project}</label>
         <select
@@ -137,7 +152,11 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {saved ? <Notice tone="ok">{t.manual.saved}</Notice> : null}
-      <button type="submit" className="btn btn-primary tt-wide" disabled={busy || !project}>
+      <button
+        type="submit"
+        className="btn btn-primary tt-wide"
+        disabled={busy || !project || !times.ok}
+      >
         {busy ? t.saving : t.manual.save}
       </button>
     </form>

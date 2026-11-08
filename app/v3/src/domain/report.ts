@@ -52,6 +52,8 @@ export interface Summary extends Range {
   entries: number;
   totalMs: number;
   billableMs: number;
+  /** Time on the Organization's own work: projects without a client, invoiced or not. */
+  ownMs: number;
   days: { day: string; ms: number; workday: boolean }[];
   projects: { id: string; name: string; clientName: string; billable: boolean; ms: number }[];
   clients: { id: string | null; name: string; ms: number; billableMs: number }[];
@@ -81,6 +83,7 @@ export function summarize(
   const lines = new Map<string, SummaryLine>();
   let totalMs = 0;
   let billableMs = 0;
+  let ownMs = 0;
   let count = 0;
   for (const { value } of rows) {
     if (!inRange(value, range, policy)) continue;
@@ -91,6 +94,7 @@ export function summarize(
     count += 1;
     totalMs += ms;
     if (billable) billableMs += ms;
+    if (clientId === null) ownMs += ms;
     const day = entryDay(value, policy);
     days.set(day, (days.get(day) ?? 0) + ms);
     const key = `${value.project}\u0000${value.person}`;
@@ -134,6 +138,7 @@ export function summarize(
     entries: count,
     totalMs,
     billableMs,
+    ownMs,
     days: [...days].map(([day, ms]) => ({ day, ms, workday: isWorkday(day, policy) })),
     projects: group(
       (line) => line.project,

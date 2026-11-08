@@ -11,8 +11,8 @@ const local: Viewer = { role: "admin", person: null };
 const nobody: Viewer = { role: null, person: null };
 
 /** The API over the example in memory, with the viewer each request names. */
-function setup() {
-  const store = createMemoryStore(sampleData(), { policy: POLICY, now: () => NOW });
+function setup(now: () => number = () => NOW) {
+  const store = createMemoryStore(sampleData(), { policy: POLICY, now });
   const viewers = new Map<string, Viewer>([
     ["admin", admin],
     ["user", user],
@@ -28,7 +28,7 @@ function setup() {
     policy: POLICY,
     organization: "Example",
     language: "cs",
-    now: () => NOW,
+    now,
   });
   const call = async (as: string, method: string, path: string, body?: unknown) => {
     const response = await api(
@@ -316,5 +316,160 @@ describe("requests", () => {
       "souhrn-hodin-2026-11-02-2026-11-08.csv",
     );
     expect(response.text).toContain('"Example Bistro";"Nový web"');
+  });
+});
+
+describe("an edit keeps the times it does not change", () => {
+  const clock = { now: Date.parse("2026-11-06T14:04:19.946Z") };
+  const edit = (revision: string, shown: { day: string; from: string; to: string | null }) => ({
+    revision,
+    project: "jarni-kampan",
+    ...shown,
+    note: "Jen jiný popis",
+  });
+
+  test("a note on a running timer leaves its start to the millisecond", async () => {
+    const { call } = setup(() => clock.now);
+    const started = await call("user", "POST", "/api/timer/start", {
+      id: NEW_ID,
+      project: "jarni-kampan",
+      note: "",
+    });
+    expect((started.data.value as { startedAt: string }).startedAt).toBe(
+      "2026-11-06T14:04:19.946Z",
+    );
+    // The dialog shows 15:04 in Prague and sends it back unchanged.
+    const saved = await call(
+      "user",
+      "PUT",
+      `/api/entries/${NEW_ID}`,
+      edit(started.data.revision as string, { day: "2026-11-06", from: "15:04", to: null }),
+    );
+    expect(saved.status).toBe(200);
+    expect(saved.data.value).toMatchObject({
+      startedAt: "2026-11-06T14:04:19.946Z",
+      endedAt: null,
+      note: "Jen jiný popis",
+    });
+  });
+
+  test("a short stopped timer shown 15:04–15:04 stays seconds long, never a whole day", async () => {
+    clock.now = Date.parse("2026-11-06T14:04:19.946Z");
+    const { call } = setup(() => clock.now);
+    const started = await call("user", "POST", "/api/timer/start", {
+      id: NEW_ID,
+      project: "jarni-kampan",
+      note: "",
+    });
+    clock.now = Date.parse("2026-11-06T14:04:40.000Z");
+    const stopped = await call("user", "POST", "/api/timer/stop", {
+      id: NEW_ID,
+      revision: started.data.revision,
+    });
+    const saved = await call(
+      "user",
+      "PUT",
+      `/api/entries/${NEW_ID}`,
+      edit(stopped.data.revision as string, {
+        day: "2026-11-06",
+        from: "15:04",
+        to: "15:04",
+      }),
+    );
+    expect(saved.status).toBe(200);
+    expect(saved.data.value).toMatchObject({
+      startedAt: "2026-11-06T14:04:19.946Z",
+      endedAt: "2026-11-06T14:04:40.000Z",
+    });
+  });
+
+  test("a start and an end entered equal are refused, not read as 24 hours", async () => {
+    const { call } = setup();
+    const answer = await call("user", "POST", "/api/entries", {
+      id: NEW_ID,
+      project: "jarni-kampan",
+      day: "2026-11-02",
+      from: "18:00",
+      to: "18:00",
+      note: "",
+    });
+    expect(answer.status).toBe(422);
+    expect(answer.data.code).toBe("invalid_record");
+  });
+});
+
+describe("times the clocks skip or repeat", () => {
+  const manual = (fields: Record<string, unknown>) => ({
+    id: NEW_ID,
+    project: "jarni-kampan",
+    note: "Noční nasazení",
+    ...fields,
+  });
+
+  test("02:30 on 29 March 2026 does not exist in Prague and is refused", async () => {
+    const { call } = setup();
+    const answer = await call(
+      "user",
+      "POST",
+      "/api/entries",
+      manual({ day: "2026-03-29", from: "02:30", to: "04:00" }),
+    );
+    expect(answer.status).toBe(422);
+    expect(answer.data.code).toBe("nonexistent_time");
+    expect(answer.data.issues).toEqual([
+      { path: "from", message: expect.stringContaining("02:30") },
+    ]);
+  });
+
+  test("02:30 on 25 October 2026 happens twice: the person names the occurrence, and an edit keeps it", async () => {
+    const { call } = setup();
+    const unnamed = await call(
+      "user",
+      "POST",
+      "/api/entries",
+      manual({ day: "2026-10-25", from: "02:30", to: "03:30" }),
+    );
+    expect(unnamed.status).toBe(409);
+    expect(unnamed.data.code).toBe("ambiguous_time");
+    const later = await call(
+      "user",
+      "POST",
+      "/api/entries",
+      manual({ day: "2026-10-25", from: "02:30", to: "03:30", fromOccurrence: "later" }),
+    );
+    expect(later.status).toBe(201);
+    expect(later.data.value).toMatchObject({
+      startedAt: "2026-10-25T01:30:00.000Z",
+      endedAt: "2026-10-25T02:30:00.000Z",
+    });
+    // A note-only edit sends the same wall-clock times without a choice and keeps the moments.
+    const edited = await call("user", "PUT", `/api/entries/${NEW_ID}`, {
+      revision: later.data.revision,
+      project: "jarni-kampan",
+      day: "2026-10-25",
+      from: "02:30",
+      to: "03:30",
+      note: "Jen jiný popis",
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.data.value).toMatchObject({
+      startedAt: "2026-10-25T01:30:00.000Z",
+      note: "Jen jiný popis",
+    });
+    // Moving it to the earlier 02:30 is the person's explicit choice.
+    const earlier = await call("user", "PUT", `/api/entries/${NEW_ID}`, {
+      revision: edited.data.revision,
+      project: "jarni-kampan",
+      day: "2026-10-25",
+      from: "02:15",
+      to: "03:30",
+      fromOccurrence: "earlier",
+      note: "Jen jiný popis",
+    });
+    expect(earlier.status).toBe(200);
+    expect(earlier.data.value).toMatchObject({
+      startedAt: "2026-10-25T00:15:00.000Z",
+      endedAt: "2026-10-25T02:30:00.000Z",
+    });
   });
 });

@@ -41,6 +41,10 @@ a project or a time, and you never publish.
 - Every entry needs a day (`YYYY-MM-DD`), a start and an end (`HH:MM`) in the
   Organization's time zone, and a short note in the person's words. Relative
   days ("yesterday", "on Monday") are relative to today in that time zone.
+- A time the clocks skip (the night they move forward) does not exist and is
+  refused (`nonexistent_time`); a time they repeat (the night they move back)
+  needs `fromOccurrence` or `toOccurrence`, `earlier` or `later`: ask the
+  person which one (`ambiguous_time` names the time). Never choose for them.
 - A duration without times ("three hours") needs a start: ask, or propose one
   that does not overlap the person's other entries of that day
   (`GET /api/entries?person=<subject>&from=<day>&to=<day>`) and say that you
@@ -60,6 +64,7 @@ curl -sS -X POST "http://127.0.0.1:<port>/api/entries" \
 
 - `201` returns the saved entry. A refusal names its reason in the App's
   language: `entry_overlap` (another entry of the person covers that time),
+  `nonexistent_time` and `ambiguous_time` (above),
   `timer_running` (the person's timer runs then), `invalid_record` (an
   archived project, a time in the future, an unknown person). Tell the person
   and correct with them; never force a save around a rule.

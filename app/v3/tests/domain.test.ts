@@ -4,12 +4,15 @@ import {
   isoWeek,
   isWorkday,
   localDay,
+  localMoments,
   localTime,
+  utcOffsetText,
   weekStart,
   zonedMoment,
 } from "../src/domain/calendar.ts";
 import { slugFor } from "../src/domain/common.ts";
 import { entriesCsv, summaryCsv } from "../src/domain/csv.ts";
+import { keptMoments, resolveInterval } from "../src/domain/interval.ts";
 import { knownPeople, missingDays, rangeOf, shiftRange, summarize } from "../src/domain/report.ts";
 import { checkRules } from "../src/domain/rules.ts";
 import { durationMs, effective, hoursText, needsEndCheck } from "../src/domain/time.ts";
@@ -322,5 +325,95 @@ describe("a forgotten timer", () => {
     expect(corrected.autoStoppedAt).not.toBeNull();
     expect(needsEndCheck(corrected, NOW, POLICY)).toBe(false);
     expect(needsEndCheck(newEntry(), NOW, POLICY)).toBe(false);
+  });
+});
+
+describe("wall-clock times and their moments", () => {
+  test("a time the clocks skip has none, a time they repeat has two", () => {
+    expect(localMoments("2026-03-29", "02:30", TZ)).toEqual([]);
+    expect(localMoments("2026-10-25", "02:30", TZ).map((ms) => new Date(ms).toISOString())).toEqual(
+      ["2026-10-25T00:30:00.000Z", "2026-10-25T01:30:00.000Z"],
+    );
+    expect(localMoments("2026-11-06", "09:00", TZ)).toEqual([
+      Date.parse("2026-11-06T08:00:00.000Z"),
+    ]);
+    expect(utcOffsetText(Date.parse("2026-10-25T00:30:00.000Z"), TZ)).toBe("UTC+02:00");
+    expect(utcOffsetText(Date.parse("2026-10-25T01:30:00.000Z"), TZ)).toBe("UTC+01:00");
+  });
+
+  test("an interval refuses a missing time, asks about a repeated one and never makes a day of equal times", () => {
+    expect(resolveInterval({ day: "2026-03-29", from: "02:30", to: "04:00" }, TZ)).toMatchObject({
+      ok: false,
+      field: "from",
+      problem: "missing",
+    });
+    expect(resolveInterval({ day: "2026-10-25", from: "01:00", to: "02:30" }, TZ)).toMatchObject({
+      ok: false,
+      field: "to",
+      problem: "ambiguous",
+    });
+    expect(
+      resolveInterval(
+        { day: "2026-10-25", from: "01:00", to: "02:30", toOccurrence: "earlier" },
+        TZ,
+      ),
+    ).toEqual({
+      ok: true,
+      startedAt: "2026-10-24T23:00:00.000Z",
+      endedAt: "2026-10-25T00:30:00.000Z",
+    });
+    expect(resolveInterval({ day: "2026-11-06", from: "18:00", to: "18:00" }, TZ)).toMatchObject({
+      ok: false,
+      problem: "order",
+    });
+    // An end earlier on the clock than the start is on the next day.
+    expect(resolveInterval({ day: "2026-11-06", from: "22:00", to: "02:00" }, TZ)).toEqual({
+      ok: true,
+      startedAt: "2026-11-06T21:00:00.000Z",
+      endedAt: "2026-11-07T01:00:00.000Z",
+    });
+  });
+
+  test("times left as shown keep their stored moments; a changed one is built anew", () => {
+    const stored = { startedAt: "2026-11-06T14:04:19.946Z", endedAt: "2026-11-06T14:04:40.000Z" };
+    const shown = { day: "2026-11-06", from: "15:04", to: "15:04" };
+    expect(keptMoments(stored, shown, TZ)).toEqual(stored);
+    expect(resolveInterval(shown, TZ, keptMoments(stored, shown, TZ))).toEqual({
+      ok: true,
+      ...stored,
+    });
+    const later = { ...shown, to: "16:00" };
+    expect(resolveInterval(later, TZ, keptMoments(stored, later, TZ))).toEqual({
+      ok: true,
+      startedAt: stored.startedAt,
+      endedAt: "2026-11-06T15:00:00.000Z",
+    });
+    // Another day moves the whole entry.
+    expect(keptMoments(stored, { ...shown, day: "2026-11-05" }, TZ)).toEqual({});
+  });
+});
+
+describe("own work", () => {
+  test("is the time on projects without a client, whether invoiced or not", () => {
+    const sample = sampleData();
+    const projects = sample.projects.map((row) =>
+      row.id === "interni-provoz"
+        ? { ...row, value: { ...row.value, billable: true } }
+        : row.id === "jarni-kampan"
+          ? { ...row, value: { ...row.value, billable: false } }
+          : row,
+    );
+    const week = summarize(
+      sample.entries,
+      { clients: sample.clients, projects },
+      rangeOf("week", "2026-11-04"),
+      NOW,
+      POLICY,
+      "cs",
+    );
+    const internal = week.projects.find((row) => row.id === "interni-provoz")?.ms ?? 0;
+    expect(internal).toBeGreaterThan(0);
+    expect(week.ownMs).toBe(internal);
+    expect(week.ownMs).not.toBe(week.totalMs - week.billableMs);
   });
 });

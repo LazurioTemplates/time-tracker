@@ -116,8 +116,8 @@ export function ReportPage({ period, day }: { period: Period; day: string | null
             </div>
             <div className="card tt-metric">
               <span className="eyebrow">{t.ownWork}</span>
-              <p className="metric">{fmt.hours(summary.totalMs - summary.billableMs)}</p>
-              <span className="tt-muted">{t.report.unbilled}</span>
+              <p className="metric">{fmt.hours(summary.ownMs)}</p>
+              <span className="tt-muted">{t.report.ownWorkSub}</span>
             </div>
             <div className="card tt-metric">
               <span className="eyebrow">{t.report.missing}</span>

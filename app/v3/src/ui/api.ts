@@ -1,6 +1,7 @@
 import type { DraftPanelInput } from "@lazurio/repository-db";
 import type { Client } from "../domain/client.ts";
 import type { Entry } from "../domain/entry.ts";
+import type { Occurrence } from "../domain/interval.ts";
 import type { Policy } from "../domain/policy.ts";
 import type { Project } from "../domain/project.ts";
 import type { Period, Range, Summary } from "../domain/report.ts";
@@ -126,6 +127,8 @@ export const api = {
     day: string;
     from: string;
     to: string;
+    fromOccurrence?: Occurrence;
+    toOccurrence?: Occurrence;
     note: string;
   }) => request<Stored<Entry>>("/api/entries", { method: "POST", body: input }),
   saveEntry: (
@@ -136,6 +139,8 @@ export const api = {
       day: string;
       from: string;
       to: string | null;
+      fromOccurrence?: Occurrence;
+      toOccurrence?: Occurrence;
       note: string;
     },
   ) =>

@@ -36,8 +36,17 @@ checkout, and the Draft page shows the same check.
 - Moments are stored in UTC (`2026-11-05T08:30:00.000Z`). Days, weeks and
   months are counted in the Organization's time zone (`policy.timeZone` in
   `app/v3/src/instance/settings.ts`, `Europe/Prague` by default), on every
-  device alike. An entry belongs to the day it starts on; an entry written by
-  hand whose end is not after its start ends on the next day.
+  device alike. An entry belongs to the day it starts on. A person enters a
+  day, a start and an end (`app/v3/src/domain/interval.ts`): an end earlier on
+  the clock than the start is on the next day, and an end equal to the start
+  is refused, never read as a whole day.
+- A time the clocks skip (02:30 on 29 March 2026 in Prague) is refused. A time
+  they repeat (02:30 on 25 October 2026) needs the person to name the
+  occurrence, `fromOccurrence` or `toOccurrence` `earlier` or `later`; the App
+  asks with the UTC offset of each.
+- An edit keeps the stored moment of every time the person left as it was
+  shown, to the millisecond and with its occurrence, so correcting a note or a
+  project never moves a start or an end.
 - Weeks run from Monday to Sunday (ISO weeks). Working days are Monday to
   Friday without the public holidays of the Czech Republic (Easter included);
   both are settings.

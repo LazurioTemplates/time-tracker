@@ -1,3 +1,4 @@
+import type { Occurrence } from "../domain/interval.ts";
 import type { Messages } from "../language/messages.ts";
 import { ApiError, type api as browserApi, newId, type StoredEntry } from "./api.ts";
 
@@ -24,6 +25,15 @@ type Api = Pick<
 const day = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" };
 const clock = { type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" };
 const text = (max: number) => ({ type: "string", maxLength: max });
+/** Which of two moments a time means when the clocks repeat it (the hour they move back). */
+const occurrence = { type: "string", enum: ["earlier", "later"] };
+const choice = (value: unknown): Occurrence | undefined =>
+  value === "earlier" || value === "later" ? value : undefined;
+const occurrences = (input: Record<string, unknown>) => {
+  const from = choice(input.fromOccurrence);
+  const to = choice(input.toOccurrence);
+  return { ...(from ? { fromOccurrence: from } : {}), ...(to ? { toOccurrence: to } : {}) };
+};
 const object = (properties: Record<string, unknown>, required: string[] = []) => ({
   type: "object",
   properties,
@@ -129,6 +139,8 @@ export function timeTrackerTools(options: {
           project: { type: "string" },
           note: text(500),
           person: { type: "string" },
+          fromOccurrence: occurrence,
+          toOccurrence: occurrence,
         },
         ["day", "from", "to", "project"],
       ),
@@ -143,6 +155,7 @@ export function timeTrackerTools(options: {
               to: str(input.to) ?? "",
               project: str(input.project) ?? "",
               note: str(input.note) ?? "",
+              ...occurrences(input),
             }),
           ),
         ),
@@ -159,6 +172,8 @@ export function timeTrackerTools(options: {
           to: { anyOf: [clock, { type: "null" }] },
           project: { type: "string" },
           note: text(500),
+          fromOccurrence: occurrence,
+          toOccurrence: occurrence,
         },
         ["id", "revision", "day", "from", "to", "project"],
       ),
@@ -172,6 +187,7 @@ export function timeTrackerTools(options: {
               to: str(input.to) ?? null,
               project: str(input.project) ?? "",
               note: str(input.note) ?? "",
+              ...occurrences(input),
             }),
           ),
         ),

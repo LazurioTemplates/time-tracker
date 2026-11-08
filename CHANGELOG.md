@@ -14,11 +14,14 @@ on the App generation `app/v3` and the stack profile `app-data@2026.11`.
   itself ten hours after its start, is counted only up to then everywhere and
   is flagged until someone sets its real end.
 - Entries of the week by day, every entry with filters by period, person,
-  client and project, and a dialog to correct or delete an entry.
+  client and project, and a dialog to correct or delete an entry. An edit
+  keeps every time it does not change to the millisecond; a time the clocks
+  skip is refused and one they repeat asks which occurrence is meant.
 - Projects and clients, invoiced or the Organization's own work, archived
   without losing their history.
 - The overview of a week or a month: hours in total, to invoice and of the
-  Organization's own work, per day, project, client and person, and the
+  Organization's own work (projects without a client), per day, project,
+  client and person, and the
   working days without an entry (weekends and Czech public holidays left out).
 - CSV of every entry and of the hours by client, project and person, as Czech
   (`;`, decimal comma) or English (`,`, decimal point) spreadsheets open it.

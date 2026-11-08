@@ -88,6 +88,9 @@ const cs = {
     note: "Co jste dělali",
     optional: "(nepovinné)",
     stillRunning: "(prázdné = běží dál)",
+    occurrence: "Který výskyt",
+    occurrenceOption: (first: boolean, offset: string) =>
+      `${first ? "první" : "druhý"} (${offset})`,
   },
   saving: "Ukládám…",
   entry: {
@@ -143,6 +146,7 @@ const cs = {
     billable: "K fakturaci",
     shareOfTime: (percent: number) => `${percent} % času`,
     unbilled: "bez fakturace",
+    ownWorkSub: "projekty bez klienta",
     missing: "Chybějící dny",
     missingSub: "pracovní dny bez záznamu",
     byDay: "Hodiny po dnech",
@@ -280,6 +284,10 @@ const cs = {
     changedMeanwhile: "Záznam se mezitím změnil. Načtěte ho znovu.",
     endNeeded: "Ukončený záznam potřebuje konec.",
     endAfterStart: "Konec musí být po začátku.",
+    nonexistentTime: (day: string, time: string) =>
+      `Čas ${time} dne ${day} v časovém pásmu Organizace neexistuje, protože se hodiny posouvají dopředu. Zadejte jiný čas.`,
+    ambiguousTime: (day: string, time: string) =>
+      `Čas ${time} dne ${day} nastává dvakrát, protože se hodiny posouvají zpět. Vyberte, který výskyt myslíte.`,
     dayFormat: "Zadejte den ve tvaru RRRR-MM-DD.",
     rangeOrder: "Konec období musí být po jeho začátku.",
   },
@@ -430,6 +438,8 @@ const en: Messages = {
     note: "What you did",
     optional: "(optional)",
     stillRunning: "(empty = keeps running)",
+    occurrence: "Which occurrence",
+    occurrenceOption: (first, offset) => `${first ? "the first" : "the second"} (${offset})`,
   },
   saving: "Saving…",
   entry: {
@@ -485,6 +495,7 @@ const en: Messages = {
     billable: "To invoice",
     shareOfTime: (percent) => `${percent} % of the time`,
     unbilled: "not invoiced",
+    ownWorkSub: "projects without a client",
     missing: "Missing days",
     missingSub: "working days without an entry",
     byDay: "Hours per day",
@@ -619,6 +630,10 @@ const en: Messages = {
     changedMeanwhile: "The entry changed in the meantime. Load it again.",
     endNeeded: "A finished entry needs an end.",
     endAfterStart: "The end must come after the start.",
+    nonexistentTime: (day, time) =>
+      `${time} on ${day} does not exist in the Organization's time zone: the clocks move forward then. Enter another time.`,
+    ambiguousTime: (day, time) =>
+      `${time} on ${day} happens twice: the clocks move back then. Choose which occurrence you mean.`,
     dayFormat: "Enter the day as YYYY-MM-DD.",
     rangeOrder: "The end of the period must come after its start.",
   },

@@ -79,9 +79,50 @@ function offsetMs(ms: number, timeZone: string): number {
 }
 
 /**
- * The moment a wall-clock time of a day has in the time zone. Around a change
- * of daylight saving time the offset is taken twice, so the answer is the
- * moment whose own offset gives back that time where it exists.
+ * Every moment a wall-clock time of a day has in the time zone, earliest
+ * first: one on an ordinary day, none in the gap the clocks jump over when
+ * they move forward (2026-03-29 02:30 in Prague), two in the hour they repeat
+ * when they move back (2026-10-25 02:30 in Prague).
+ */
+export function localMoments(dayText: string, time: string, timeZone: string): number[] {
+  const [year = 1970, month = 1, date = 1] = dayText.split("-").map(Number);
+  const [hour = 0, minute = 0] = time.split(":").map(Number);
+  const guess = Date.UTC(year, month - 1, date, hour, minute);
+  const halfDay = 12 * 3_600_000;
+  const offsets = new Set([
+    offsetMs(guess - halfDay, timeZone),
+    offsetMs(guess, timeZone),
+    offsetMs(guess + halfDay, timeZone),
+  ]);
+  const moments = new Set<number>();
+  for (const offset of offsets) {
+    const candidate = guess - offset;
+    const clock = wallClock(candidate, timeZone);
+    if (
+      clock.year === year &&
+      clock.month === month &&
+      clock.day === date &&
+      clock.hour === hour &&
+      clock.minute === minute
+    )
+      moments.add(candidate);
+  }
+  return [...moments].sort((a, b) => a - b);
+}
+
+/** The offset from UTC a moment has in the time zone, as people read it: `UTC+02:00`. */
+export function utcOffsetText(moment: number, timeZone: string): string {
+  const minutes = Math.round(offsetMs(moment, timeZone) / 60_000);
+  const sign = minutes < 0 ? "-" : "+";
+  const absolute = Math.abs(minutes);
+  return `UTC${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`;
+}
+
+/**
+ * The moment a wall-clock time of a day has in the time zone, for a time
+ * known to exist once (the demo's working hours). Entries people write go
+ * through `resolveInterval`, which refuses a missing time and asks which of
+ * two repeated ones is meant.
  */
 export function zonedMoment(dayText: string, time: string, timeZone: string): number {
   const [year = 1970, month = 1, date = 1] = dayText.split("-").map(Number);
