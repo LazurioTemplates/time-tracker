@@ -1,0 +1,8 @@
+{
+  "name": "time-tracker-app-v3",
+  "private": true,
+  "dependencies": {
+    "design-system": "git+ssh://git@github.com/ExampleOrganization/design-system.git#v2.1.0",
+    "react": "19.3.1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "time-tracker.client.v1",
+  "title": "Time Tracker client",
+  "$comment": "Generated from the Zod schemas of Time Tracker (app/v3/src/domain) by `bun run schema:export`. Do not edit.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "time-tracker.client.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "archived"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "record"
+  ],
+  "additionalProperties": false
+}

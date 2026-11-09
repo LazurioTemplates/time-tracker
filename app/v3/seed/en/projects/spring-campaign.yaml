@@ -1,0 +1,7 @@
+id: spring-campaign
+record:
+  archived: false
+  billable: true
+  client: example-studio
+  name: Spring campaign
+schemaVersion: time-tracker.project.v1

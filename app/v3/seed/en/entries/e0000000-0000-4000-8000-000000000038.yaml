@@ -1,0 +1,13 @@
+id: e0000000-0000-4000-8000-000000000038
+record:
+  autoStoppedAt: null
+  endedAt: 2026-10-27T11:15:00.000Z
+  note: Route overview for drivers
+  person: 11111111-1111-4111-8111-111111111111
+  personName: alexmorgan
+  project: delivery-app
+  source: timer
+  startedAt: 2026-10-27T07:45:00.000Z
+  updatedAt: 2026-10-27T11:15:00.000Z
+  updatedBy: 11111111-1111-4111-8111-111111111111
+schemaVersion: time-tracker.entry.v1

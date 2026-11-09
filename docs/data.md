@@ -1,0 +1,103 @@
+# Data
+
+Time Tracker keeps no data in this repository. Each Organization keeps its
+records in its own data repository, `<Organization>/time-tracker-data`, on
+branch `v3`, checked out as `db/` at the Module root and managed by
+[repository-db](https://github.com/Lazurio/repository-db) v3.2.6. Time
+entries are personal data (who worked when and on what): keep the repository
+private and never copy its records elsewhere.
+
+## Records
+
+Three collections in the layout of the stack profile: one document
+`data/<collection>/<id>.yaml` each, in the engine's envelope (`schemaVersion`,
+`id`, `record`). The Zod schemas in `app/v3/src/domain/` are the only
+definition; `templates/data-repo/schemas/` is generated from them.
+
+| Collection | `schemaVersion` | id | record |
+| --- | --- | --- | --- |
+| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived` |
+| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived` |
+| `entries` | `time-tracker.entry.v1` | a lowercase UUID | `person` (Lazurio subject), `personName` (username, or `null`), `project`, `startedAt`, `endedAt` (`null` while running), `note`, `source` (`timer` or `manual`), `autoStoppedAt`, `updatedAt`, `updatedBy` (subject, or `null` from inside the Environment) |
+
+### Rules across records
+
+What one record's schema cannot say, `app/v3/src/domain/rules.ts` checks: a
+project names an existing client and an entry an existing project; a new
+entry cannot go on an archived project nor a new project on an archived
+client; an entry neither starts nor ends in the future; one person has at most
+one running timer and no two entries of one person overlap. The App refuses a
+save that breaks a rule, inside the engine's write queue so two saves at once
+cannot both pass; `bun run validate:db` reports every problem of the data
+checkout, and the Draft page shows the same check.
+
+## Time and calendar
+
+- Moments are stored in UTC (`2026-11-05T08:30:00.000Z`). Days, weeks and
+  months are counted in the Organization's time zone (`policy.timeZone` in
+  `app/v3/src/instance/settings.ts`, `Europe/Prague` by default), on every
+  device alike. An entry belongs to the day it starts on. A person enters a
+  day, a start and an end (`app/v3/src/domain/interval.ts`); the end is the
+  first moment after the start at which the clock shows its time: later the
+  same day, or on the next day (22:00 to 02:00 runs overnight). An end equal
+  to the start is refused, never read as a whole day.
+- A time the clocks skip (02:30 on 29 March 2026 in Prague) is refused. A time
+  they repeat (02:30 on 25 October 2026) is one of two moments, `earlier` or
+  `later` (`fromOccurrence`, `toOccurrence`): the person names it whenever
+  both can be meant. Across the repeated hour the end follows the same rule:
+  the first 02:50 to the second 02:10 is 20 minutes, the second 02:50 to 02:10
+  runs overnight. The forms keep the choice in view with the UTC offset of
+  each moment, clear it when its day or time changes, and show the moments an
+  entry will store before it is saved.
+- An edit keeps the stored moment of every time the person left as it was
+  shown, to the millisecond and with its occurrence, so correcting a note or a
+  project never moves a start or an end; naming the other occurrence moves it
+  on purpose.
+- Weeks run from Monday to Sunday (ISO weeks). Working days are Monday to
+  Friday without the public holidays of the Czech Republic (Easter included);
+  both are settings.
+- A timer nobody stopped ends by itself `timerLimitHours` (10) after its
+  start. Every read, overview and export counts it only up to then, even
+  before anyone saved that end, and the App flags it. Correcting it keeps
+  `autoStoppedAt` as a trace.
+
+## Exports
+
+`/api/export` answers what the person may see, filtered like the entries page
+(`from`, `to`, `person`, `client`, `project`):
+
+- `kind=entries`: one row per entry with day, start, end, hours, person,
+  client, project, invoiced or not, description, state, how it was recorded
+  and its id;
+- `kind=summary`: hours by client, project and person for the period, the
+  timesheet for invoicing or payroll.
+
+Both are UTF-8 with a byte order mark and CRLF lines. In Czech the cells are
+separated by `;` and decimals by a comma, in English by `,` and a point, as
+spreadsheets of the language open them. A cell a spreadsheet would run as a
+formula starts with an apostrophe. Hours have two decimals and no rounding
+rule; rounding for an invoice is the Organization's decision.
+
+## The data repository
+
+`templates/data-repo/` is the data repository an adopting Organization starts
+from ([`adoption.md`](adoption.md)):
+
+- `repository-db.yaml`: the engine's configuration, with
+  `validate: [bun scripts/validate.ts]`;
+- `schemas/*.schema.json`: generated by `bun run schema:export`; `bun run
+  check` fails when they are stale;
+- `scripts/validate.ts`: the validator repository-db runs before every
+  publish. It has no dependencies (Bun parses the YAML), reads only the
+  checkout, refuses symbolic links and checks every document against its
+  schema, its id against its file name, an end after its start and the
+  references between records. A test proves it agrees with the Zod schemas;
+- empty `data/clients/`, `data/projects/` and `data/entries/`, the empty
+  start;
+- a CI workflow that runs the validator.
+
+`app/v3/seed/cs/` and `app/v3/seed/en/` hold the fictional example records of
+the `sample` start in each language: three clients, five projects (one
+archived), three people and three weeks of entries from 19 October to 6
+November 2026, with a forgotten timer and a few missing days. `bun run
+dev:demo` serves them moved to the current weeks.

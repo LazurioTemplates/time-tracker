@@ -1,0 +1,5 @@
+id: example-logistics
+record:
+  archived: false
+  name: Example Logistics
+schemaVersion: time-tracker.client.v1
