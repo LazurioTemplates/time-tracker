@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.1.0 (draft, not released yet)
+## 0.1.0 — 2026-11-09
 
 The first release of Time Tracker as a template of the Lazurio Marketplace,
 on the App generation `app/v3` and the stack profile `app-data@2026.11`.
