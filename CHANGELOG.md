@@ -53,7 +53,8 @@ on the App generation `app/v3` and the stack profile `app-data@2026.11`.
   styles once and its React components (Button, fields, Select, Table, Card,
   Dialog, Nav, Badge, Alert, EmptyState, Logo); the App's own layout uses its
   `--ds-*` tokens only. An Organization with its own design system changes
-  that one dependency. The subtree of 1.0.0 that an earlier draft of this
+  that one dependency to `git+ssh://git@github.com/<Organization>/design-system.git#v<version>`;
+  the check accepts both forms, always at a released tag and locked. The subtree of 1.0.0 that an earlier draft of this
   release carried is gone; its history stays in Git and nothing of it is
   imported.
 - **For agents:** the skills `record-time`, `timesheet-for-invoicing` and

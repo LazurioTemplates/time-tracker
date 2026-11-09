@@ -124,7 +124,8 @@ cd app/v3 && bun install --frozen-lockfile && bun run check && bun run build
 ```
 
 With the Organization's own design system in the dependency, run `bun install`
-instead of `--frozen-lockfile` once and commit `bun.lock`. Its CI cannot
+instead of `--frozen-lockfile` once and commit `bun.lock`; `bun run check`
+accepts that dependency at a released tag like the template's. Its CI cannot
 install a private design system yet (Lazurio/LazurioPlatform#915): say so in
 the pull request, show the check run on the Environment, and leave access for
 CI to the Organization's Admin.

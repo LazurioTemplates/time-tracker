@@ -81,9 +81,10 @@ a Git dependency on a released tag in `app/v3/package.json`:
 `design-system/styles.css` once (`app/v3/src/ui/main.tsx`) and its components
 from `design-system/react`; `app/v3/src/ui/styles.css` adds only the App's own
 layout and parts with no component of the design system, in `tt-` classes
-over the `--ds-*` tokens. `tests/design-system.test.ts` holds this: a released
-tag, no copy and no import by a path, no literal colour and no rule on a class
-of the design system.
+over the `--ds-*` tokens. `tests/design-system.test.ts` holds this: the
+dependency in one of the two forms below at a released tag `v<semver>` and
+the matching entry in `bun.lock`, no copy and no import by a path, no literal
+colour and no rule on a class of the design system.
 
 - **A newer release** of the design system is a new tag in that line:
   `bun install`, `bun run check`, `bun run build`, a look at every page in
@@ -98,7 +99,9 @@ of the design system.
   "design-system": "git+ssh://git@github.com/<Organization>/design-system.git#v<version>"
   ```
 
-  The imports stay the same, because both packages are named `design-system`.
+  The imports stay the same, because both packages are named `design-system`,
+  and `bun run check` accepts this form as it does the template's (the test
+  reads the owner from the pin; `bun.lock` records the tag's full commit).
   A new brand is a new release of the Organization's design system and a new
   pin here.
 - **Known limitation: CI with a private design system.** The module's GitHub
