@@ -87,8 +87,9 @@ const cs = {
     project: "Projekt",
     note: "Co jste dělali",
     optional: "(nepovinné)",
-    stillRunning: "(prázdné = běží dál)",
+    stillRunning: "Prázdné = časovač běží dál.",
     occurrence: "Který výskyt",
+    chooseOccurrence: "Vyberte výskyt",
     occurrenceOption: (first: boolean, offset: string) =>
       `${first ? "první" : "druhý"} (${offset})`,
     willStore: (start: string, end: string, length: string) =>
@@ -439,8 +440,9 @@ const en: Messages = {
     project: "Project",
     note: "What you did",
     optional: "(optional)",
-    stillRunning: "(empty = keeps running)",
+    stillRunning: "Empty = the timer keeps running.",
     occurrence: "Which occurrence",
+    chooseOccurrence: "Choose the occurrence",
     occurrenceOption: (first, offset) => `${first ? "the first" : "the second"} (${offset})`,
     willStore: (start, end, length) => `Saves ${start} – ${end}, ${length} h in total.`,
   },

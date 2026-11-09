@@ -50,11 +50,13 @@ the live rights of its people.
   and in English with the same keys; the tests refuse a Czech word in the
   code or a message missing in one language. Never mix the languages on one
   screen.
-- `app/v3/design-system/` is a merged release of
-  `LazurioTemplates/design-system`. Never edit it here: the App reads its
-  tokens and stylesheet from it, and a newer release arrives by merging its
-  tag ([`docs/extending.md`](docs/extending.md)). The App's own styles are
-  `tt-` classes over the design system's tokens, without a literal colour.
+- The look is the package `design-system` at a released tag
+  (`app/v3/package.json`): `design-system/styles.css` once in `main.tsx` and
+  the components of `design-system/react`. Never copy its files, import it by
+  a path or restyle its components; a newer release is a new tag in the
+  dependency ([`docs/extending.md`](docs/extending.md)). The App's own styles
+  are `tt-` classes over its `--ds-*` tokens, without a literal colour, for
+  what the design system has no component for.
 - After a change of a schema, run `bun run schema:export` and commit the
   regenerated `templates/data-repo/schemas/` in the same pull request.
 

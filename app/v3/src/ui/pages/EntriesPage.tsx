@@ -1,9 +1,11 @@
+import { Select, TextField } from "design-system/react";
 import { useEffect, useState } from "react";
 import { monthStart } from "../../domain/calendar.ts";
 import { durationMs } from "../../domain/time.ts";
 import { api, type EntryFilter, type StoredEntry } from "../api.ts";
-import { Notice } from "../components/common.tsx";
+import { DownloadButton, Notice } from "../components/common.tsx";
 import { EntryList } from "../components/EntryList.tsx";
+import { PageHeader } from "../components/Layout.tsx";
 import { errorText, personLabel, useApp } from "../context.ts";
 
 /**
@@ -11,7 +13,7 @@ import { errorText, personLabel, useApp } from "../context.ts";
  * project, with the CSV exports of the same filter.
  */
 export function EntriesPage() {
-  const { session, catalog, people, now, today, version, edit, fmt, t } = useApp();
+  const { session, catalog, people, now, today, version, edit, fmt, t, language } = useApp();
   const admin = session.viewer.role === "admin";
   const [filter, setFilter] = useState<Required<EntryFilter>>({
     from: monthStart(today),
@@ -42,101 +44,92 @@ export function EntriesPage() {
   );
 
   return (
-    <section>
-      <header className="page-header">
-        <div>
-          <h1>{t.entries.title}</h1>
-          <p>{admin ? t.entries.subtitleAdmin : t.entries.subtitleUser}</p>
-        </div>
-      </header>
-      <div className="card tt-filters">
-        <div className="field">
-          <label htmlFor="filter-from">{t.field.from}</label>
-          <input
-            id="filter-from"
-            type="date"
-            value={filter.from ?? ""}
-            onChange={(e) => set("from", e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="filter-to">{t.field.to}</label>
-          <input
-            id="filter-to"
-            type="date"
-            min={filter.from ?? undefined}
-            value={filter.to ?? ""}
-            onChange={(e) => set("to", e.target.value)}
-          />
-        </div>
+    <section className="tt-page">
+      <PageHeader
+        title={t.entries.title}
+        description={admin ? t.entries.subtitleAdmin : t.entries.subtitleUser}
+        actions={
+          <>
+            <DownloadButton href={api.exportUrl("entries", filter)}>
+              {t.entries.exportEntries}
+            </DownloadButton>
+            <DownloadButton href={api.exportUrl("summary", filter)}>
+              {t.entries.exportSummary}
+            </DownloadButton>
+          </>
+        }
+      />
+      <div className="ds-card tt-filters">
+        <TextField
+          id="filter-from"
+          type="date"
+          label={t.field.from}
+          locale={language}
+          value={filter.from ?? ""}
+          onChange={(e) => set("from", e.target.value)}
+        />
+        <TextField
+          id="filter-to"
+          type="date"
+          label={t.field.to}
+          locale={language}
+          min={filter.from ?? undefined}
+          value={filter.to ?? ""}
+          onChange={(e) => set("to", e.target.value)}
+        />
         {admin ? (
-          <div className="field">
-            <label htmlFor="filter-person">{t.entries.person}</label>
-            <select
-              id="filter-person"
-              value={filter.person ?? ""}
-              onChange={(e) => set("person", e.target.value)}
-            >
-              <option value="">{t.entries.everyone}</option>
-              {people.map((row) => (
-                <option key={row.person} value={row.person}>
-                  {personLabel(t, row.person, row.name)}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            id="filter-person"
+            label={t.entries.person}
+            locale={language}
+            value={filter.person ?? ""}
+            onChange={(e) => set("person", e.target.value)}
+            options={[
+              { value: "", label: t.entries.everyone },
+              ...people.map((row) => ({
+                value: row.person,
+                label: personLabel(t, row.person, row.name),
+              })),
+            ]}
+          />
         ) : null}
-        <div className="field">
-          <label htmlFor="filter-client">{t.entries.client}</label>
-          <select
-            id="filter-client"
-            value={filter.client ?? ""}
-            onChange={(e) => set("client", e.target.value)}
-          >
-            <option value="">{t.entries.allClients}</option>
-            {catalog.clients.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.value.name}
-              </option>
-            ))}
-            <option value="own">{t.ownWork}</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="filter-project">{t.entries.project}</label>
-          <select
-            id="filter-project"
-            value={filter.project ?? ""}
-            onChange={(e) => set("project", e.target.value)}
-          >
-            <option value="">{t.entries.allProjects}</option>
-            {catalog.projects.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.value.name}
-                {row.value.archived ? t.dialog.archived : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Select
+          id="filter-client"
+          label={t.entries.client}
+          locale={language}
+          value={filter.client ?? ""}
+          onChange={(e) => set("client", e.target.value)}
+          options={[
+            { value: "", label: t.entries.allClients },
+            ...catalog.clients.map((row) => ({ value: row.id, label: row.value.name })),
+            { value: "own", label: t.ownWork },
+          ]}
+        />
+        <Select
+          id="filter-project"
+          label={t.entries.project}
+          locale={language}
+          value={filter.project ?? ""}
+          onChange={(e) => set("project", e.target.value)}
+          options={[
+            { value: "", label: t.entries.allProjects },
+            ...catalog.projects.map((row) => ({
+              value: row.id,
+              label: `${row.value.name}${row.value.archived ? t.dialog.archived : ""}`,
+            })),
+          ]}
+        />
       </div>
-      <div className="toolbar">
-        <p className="tt-total">
-          {entries ? (
-            <>
-              <strong>{fmt.hours(total)}</strong> · {t.entriesCount(entries.length)}
-            </>
-          ) : (
-            t.loading
-          )}
-        </p>
-        <span className="tt-grow" />
-        <a className="btn btn-compact" href={api.exportUrl("entries", filter)} download>
-          {t.entries.exportEntries}
-        </a>
-        <a className="btn btn-compact" href={api.exportUrl("summary", filter)} download>
-          {t.entries.exportSummary}
-        </a>
-      </div>
+      <p className="ds-type-body tt-total">
+        {entries ? (
+          <>
+            <strong className="ds-numeric">{fmt.hours(total)}</strong> ·{" "}
+            {t.entriesCount(entries.length)}
+          </>
+        ) : (
+          t.loading
+        )}
+      </p>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {entries ? (
         <EntryList entries={entries} showPerson={admin} onEdit={edit} empty={t.entries.empty} />

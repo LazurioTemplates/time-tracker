@@ -1,8 +1,9 @@
+import { Button, Select, TextField } from "design-system/react";
 import { type FormEvent, useState } from "react";
 import { changeWallTime, type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { api, newId } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
-import { Notice, ProjectOptions } from "./common.tsx";
+import { Notice, ProjectSelect } from "./common.tsx";
 import { TimeCheck } from "./TimeCheck.tsx";
 
 /**
@@ -11,7 +12,7 @@ import { TimeCheck } from "./TimeCheck.tsx";
  * from inside the Environment (no person) choosing the person is required.
  */
 export function ManualEntry({ defaultProject }: { defaultProject: string }) {
-  const { session, people, today, changed, t } = useApp();
+  const { session, people, today, changed, t, language } = useApp();
   const self = session.viewer.person;
   const admin = session.viewer.role === "admin";
   const [form, setForm] = useState({
@@ -63,59 +64,56 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
   };
 
   return (
-    <form className="card tt-manual" onSubmit={(event) => void submit(event)}>
-      <h2 className="tt-card-title">{t.manual.title}</h2>
-      <p className="tt-muted">{t.manual.subtitle}</p>
-      {admin && (choices.length > 1 || !self) ? (
-        <div className="field">
-          <label htmlFor="manual-person">{t.manual.forWhom}</label>
-          <select
-            id="manual-person"
-            required
-            value={form.person}
-            onChange={(e) => setForm({ ...form, person: e.target.value })}
-          >
-            {self ? null : <option value="">{t.manual.choosePerson}</option>}
-            {choices.map((row) => (
-              <option key={row.person} value={row.person}>
-                {row.person === self?.subject ? t.manual.me : personLabel(t, row.person, row.name)}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-      <div className="field">
-        <label htmlFor="manual-day">{t.field.day}</label>
-        <input
-          id="manual-day"
-          type="date"
-          required
-          max={today}
-          value={form.day}
-          onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
-        />
+    <form className="ds-card tt-form tt-manual" onSubmit={(event) => void submit(event)}>
+      <div>
+        <h2 className="ds-type-title">{t.manual.title}</h2>
+        <p className="ds-type-meta">{t.manual.subtitle}</p>
       </div>
-      <div className="tt-field-row tt-field-row-2">
-        <div className="field">
-          <label htmlFor="manual-from">{t.field.from}</label>
-          <input
-            id="manual-from"
-            type="time"
-            required
-            value={form.from}
-            onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="manual-to">{t.field.to}</label>
-          <input
-            id="manual-to"
-            type="time"
-            required
-            value={form.to}
-            onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
-          />
-        </div>
+      {admin && (choices.length > 1 || !self) ? (
+        <Select
+          id="manual-person"
+          label={t.manual.forWhom}
+          locale={language}
+          required
+          value={form.person}
+          onChange={(e) => setForm({ ...form, person: e.target.value })}
+          {...(self ? {} : { placeholder: t.manual.choosePerson })}
+          options={choices.map((row) => ({
+            value: row.person,
+            label:
+              row.person === self?.subject ? t.manual.me : personLabel(t, row.person, row.name),
+          }))}
+        />
+      ) : null}
+      <TextField
+        id="manual-day"
+        type="date"
+        label={t.field.day}
+        locale={language}
+        required
+        max={today}
+        value={form.day}
+        onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
+      />
+      <div className="tt-row tt-row--2">
+        <TextField
+          id="manual-from"
+          type="time"
+          label={t.field.from}
+          locale={language}
+          required
+          value={form.from}
+          onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
+        />
+        <TextField
+          id="manual-to"
+          type="time"
+          label={t.field.to}
+          locale={language}
+          required
+          value={form.to}
+          onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
+        />
       </div>
       <TimeCheck
         id="manual"
@@ -125,40 +123,33 @@ export function ManualEntry({ defaultProject }: { defaultProject: string }) {
           setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: value })
         }
       />
-      <div className="field">
-        <label htmlFor="manual-project">{t.field.project}</label>
-        <select
-          id="manual-project"
-          required
-          value={project}
-          onChange={(e) => setForm({ ...form, project: e.target.value })}
-        >
-          <option value="" disabled>
-            {t.manual.chooseProject}
-          </option>
-          <ProjectOptions />
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor="manual-note">
-          {t.field.note} <span className="optional">{t.field.optional}</span>
-        </label>
-        <input
-          id="manual-note"
-          maxLength={500}
-          value={form.note}
-          onChange={(e) => setForm({ ...form, note: e.target.value })}
-        />
-      </div>
+      <ProjectSelect
+        id="manual-project"
+        value={project}
+        placeholder={t.manual.chooseProject}
+        onChange={(value) => setForm({ ...form, project: value })}
+      />
+      <TextField
+        id="manual-note"
+        label={t.field.note}
+        locale={language}
+        optional
+        maxLength={500}
+        value={form.note}
+        onChange={(e) => setForm({ ...form, note: e.target.value })}
+      />
       {error ? <Notice tone="error">{error}</Notice> : null}
       {saved ? <Notice tone="ok">{t.manual.saved}</Notice> : null}
-      <button
+      <Button
         type="submit"
-        className="btn btn-primary tt-wide"
-        disabled={busy || !project || !times.ok}
+        variant="primary"
+        block
+        busy={busy}
+        locale={language}
+        disabled={!project || !times.ok}
       >
-        {busy ? t.saving : t.manual.save}
-      </button>
+        {t.manual.save}
+      </Button>
     </form>
   );
 }

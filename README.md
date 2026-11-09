@@ -50,7 +50,7 @@ are English. Screenshots: [`docs/screenshots/cs/`](docs/screenshots/cs/) and
 | Data | the Organization's own repository `time-tracker-data`, branch `v3`, checked out as `db/` |
 | Shape of the data | Zod schemas in `app/v3/src/domain/`; the JSON Schemas of the data repository are generated from them |
 | Who came | `appAccess` of `@lazurio/module-kit`, read on the server for every request |
-| Look | the design system [`LazurioTemplates/design-system`](https://github.com/LazurioTemplates/design-system) v1.0.0, merged as the subtree `app/v3/design-system` |
+| Look | the package `design-system` of [`LazurioTemplates/design-system`](https://github.com/LazurioTemplates/design-system) at the released tag v2.0.0 (`github:LazurioTemplates/design-system#v2.0.0`): its styles once and its React components |
 
 ```text
 app/v3/src/
@@ -58,13 +58,12 @@ app/v3/src/
   data/        the storage port (store.ts), its repository-db and memory implementations,
                the review adapter
   server/      Bun.serve: the HTTP API over the port, appAccess, health, the client
-  ui/          React over the HTTP API, the design system's frame and components,
-               WebMCP tools
+  ui/          React over the HTTP API with the design system's components
+               (design-system/react), the App's own layout (styles.css), WebMCP tools
   language/    every text for people, Czech and English
   instance/    the Organization's own settings: name, language, time zone, timer limit
   cli/         schema export and the rules check of the data
 app/v3/seed/cs, app/v3/seed/en   the fictional example records, one set per language
-app/v3/design-system/            the merged release of the design system, never edited here
 app/v3/tests/store-contract.ts   the shared test suite every store implementation passes
 templates/data-repo/             the data repository an adopting Organization starts from
 .agents/skills/, .claude/skills/ the procedures for agents (the same files)

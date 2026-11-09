@@ -1,9 +1,11 @@
+import { Button, Nav, Select, Table } from "design-system/react";
 import { useEffect, useState } from "react";
 import { isoWeek } from "../../domain/calendar.ts";
 import type { Period, Range } from "../../domain/report.ts";
 import { api, type Report } from "../api.ts";
-import { Notice } from "../components/common.tsx";
+import { DownloadButton, Notice, Stat } from "../components/common.tsx";
 import { DayChart } from "../components/DayChart.tsx";
+import { PageHeader } from "../components/Layout.tsx";
 import { errorText, personLabel, useApp } from "../context.ts";
 import { href } from "../routes.ts";
 
@@ -13,7 +15,7 @@ import { href } from "../routes.ts";
  * their own; an application admin the whole team or one person.
  */
 export function ReportPage({ period, day }: { period: Period; day: string | null }) {
-  const { session, people, today, version, fmt, t } = useApp();
+  const { session, people, today, version, fmt, t, language } = useApp();
   const admin = session.viewer.role === "admin";
   const [person, setPerson] = useState("");
   const [report, setReport] = useState<Report | null>(null);
@@ -42,221 +44,216 @@ export function ReportPage({ period, day }: { period: Period; day: string | null
   const share = (ms: number) => (summary && summary.totalMs > 0 ? ms / summary.totalMs : 0);
 
   return (
-    <section>
-      <header className="page-header">
-        <div>
-          <h1>{t.report.title}</h1>
-          <p>{admin ? t.report.subtitleAdmin : t.report.subtitleUser}</p>
-        </div>
-      </header>
-      <div className="toolbar">
-        <nav className="tt-segmented" aria-label={t.report.period}>
-          {(["week", "month"] as const).map((value) => (
-            <a
-              key={value}
-              className={`tt-segment${value === period ? " active" : ""}`}
-              href={href({ page: "report", period: value, day: anchor })}
-              aria-current={value === period ? "true" : undefined}
-            >
-              {value === "week" ? t.report.week : t.report.month}
-            </a>
-          ))}
-        </nav>
+    <section className="tt-page">
+      <PageHeader
+        title={t.report.title}
+        description={admin ? t.report.subtitleAdmin : t.report.subtitleUser}
+        actions={
+          filter ? (
+            <>
+              <DownloadButton href={api.exportUrl("entries", filter)}>
+                {t.report.exportEntries}
+              </DownloadButton>
+              <DownloadButton variant="primary" href={api.exportUrl("summary", filter)}>
+                {t.report.exportSummary}
+              </DownloadButton>
+            </>
+          ) : null
+        }
+      />
+      <div className="tt-toolbar">
+        <Nav
+          orientation="horizontal"
+          label={t.report.period}
+          items={(["week", "month"] as const).map((value) => ({
+            href: href({ page: "report", period: value, day: anchor }),
+            label: value === "week" ? t.report.week : t.report.month,
+            current: value === period,
+          }))}
+        />
         {report ? (
           <div className="tt-stepper">
-            <a
-              className="btn btn-compact"
+            <Button
+              iconOnly
+              icon="nav-arrow-left"
+              label={t.report.previous}
+              size="sm"
               href={href({ page: "report", period, day: report.previous.from })}
-              aria-label={t.report.previous}
-            >
-              ←
-            </a>
-            <strong className="tt-period">{title(report.range)}</strong>
-            <a
-              className="btn btn-compact"
+            />
+            <strong className="ds-numeric tt-stepper__title">{title(report.range)}</strong>
+            <Button
+              iconOnly
+              icon="nav-arrow-right"
+              label={t.report.next}
+              size="sm"
               href={href({ page: "report", period, day: report.next.from })}
-              aria-label={t.report.next}
-            >
-              →
-            </a>
+            />
           </div>
         ) : null}
-        <span className="tt-grow" />
         {admin ? (
-          <div className="field tt-inline-field">
-            <label htmlFor="report-person">{t.report.person}</label>
-            <select id="report-person" value={person} onChange={(e) => setPerson(e.target.value)}>
-              <option value="">{t.report.team}</option>
-              {people.map((row) => (
-                <option key={row.person} value={row.person}>
-                  {personLabel(t, row.person, row.name)}
-                </option>
-              ))}
-            </select>
+          <div className="tt-toolbar__end">
+            <Select
+              id="report-person"
+              label={t.report.person}
+              locale={language}
+              value={person}
+              onChange={(e) => setPerson(e.target.value)}
+              options={[
+                { value: "", label: t.report.team },
+                ...people.map((row) => ({
+                  value: row.person,
+                  label: personLabel(t, row.person, row.name),
+                })),
+              ]}
+            />
           </div>
         ) : null}
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
-      {report && summary && filter ? (
+      {report && summary ? (
         <>
-          <div className="tt-metrics tt-metrics-4">
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.report.total}</span>
-              <p className="metric">{fmt.hours(summary.totalMs)}</p>
-              <span className="tt-muted">{t.entriesCount(summary.entries)}</span>
-            </div>
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.report.billable}</span>
-              <p className="metric">{fmt.hours(summary.billableMs)}</p>
-              <span className="tt-muted">
-                {summary.totalMs > 0
+          <div className="tt-stats tt-stats--4">
+            <Stat
+              label={t.report.total}
+              value={fmt.hours(summary.totalMs)}
+              note={t.entriesCount(summary.entries)}
+            />
+            <Stat
+              label={t.report.billable}
+              value={fmt.hours(summary.billableMs)}
+              note={
+                summary.totalMs > 0
                   ? t.report.shareOfTime(fmt.percent(summary.billableMs / summary.totalMs))
-                  : "–"}
-              </span>
-            </div>
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.ownWork}</span>
-              <p className="metric">{fmt.hours(summary.ownMs)}</p>
-              <span className="tt-muted">{t.report.ownWorkSub}</span>
-            </div>
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.report.missing}</span>
-              <p className="metric">
-                {report.missing.reduce((sum, row) => sum + row.days.length, 0)}
-              </p>
-              <span className="tt-muted">{t.report.missingSub}</span>
-            </div>
+                  : "–"
+              }
+            />
+            <Stat label={t.ownWork} value={fmt.hours(summary.ownMs)} note={t.report.ownWorkSub} />
+            <Stat
+              label={t.report.missing}
+              value={report.missing.reduce((sum, row) => sum + row.days.length, 0)}
+              note={t.report.missingSub}
+            />
           </div>
-          <div className="card">
+          <div className="ds-card">
             <DayChart summary={summary} />
           </div>
           <div className="tt-report-grid">
-            <div className="table-wrap">
-              <table className="table">
-                <caption>{t.report.byProject}</caption>
-                <thead>
+            <Table id="by-project" caption={t.report.byProject}>
+              <thead>
+                <tr>
+                  <th scope="col">{t.report.projectColumn}</th>
+                  <th scope="col">{t.report.clientColumn}</th>
+                  <th scope="col" className="ds-table__num">
+                    {t.report.hoursColumn}
+                  </th>
+                  <th scope="col" className="tt-share-head">
+                    {t.report.shareColumn}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.projects.length === 0 ? (
                   <tr>
-                    <th>{t.report.projectColumn}</th>
-                    <th>{t.report.clientColumn}</th>
-                    <th className="num">{t.report.hoursColumn}</th>
-                    <th className="tt-share-head">{t.report.shareColumn}</th>
+                    <td colSpan={4}>{t.report.nothing}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {summary.projects.map((row) => (
-                    <tr key={row.id}>
-                      <td className="row-name" data-label={t.report.projectColumn}>
-                        {row.name}
-                        {row.billable ? null : <span className="sub">{t.report.unbilled}</span>}
-                      </td>
-                      <td data-label={t.report.clientColumn}>{row.clientName}</td>
-                      <td className="num" data-label={t.report.hoursColumn}>
-                        {fmt.hours(row.ms)}
-                      </td>
-                      <td className="tt-share" data-label={t.report.shareColumn}>
+                ) : null}
+                {summary.projects.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <strong>{row.name}</strong>
+                      {row.billable ? null : (
+                        <span className="ds-type-meta tt-sub">{t.report.unbilled}</span>
+                      )}
+                    </td>
+                    <td>{row.clientName}</td>
+                    <td className="ds-table__num">{fmt.hours(row.ms)}</td>
+                    <td>
+                      <span className="tt-share">
                         <span
-                          className="tt-share-bar"
+                          className="tt-share__bar"
                           style={{ width: `${share(row.ms) * 100}%` }}
                         />
-                        <span className="tt-share-value">{fmt.percent(share(row.ms))} %</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {summary.projects.length === 0 ? (
-                <p className="tt-empty tt-pad">{t.report.nothing}</p>
-              ) : null}
-            </div>
-            <div className="table-wrap">
-              <table className="table">
-                <caption>{t.report.byClient}</caption>
+                        <span className="ds-numeric ds-type-meta">
+                          {fmt.percent(share(row.ms))} %
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <Table id="by-client" caption={t.report.byClient}>
+              <thead>
+                <tr>
+                  <th scope="col">{t.report.clientColumn}</th>
+                  <th scope="col" className="ds-table__num">
+                    {t.report.total}
+                  </th>
+                  <th scope="col" className="ds-table__num">
+                    {t.report.billable}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.clients.map((row) => (
+                  <tr key={row.id ?? "own"}>
+                    <td>
+                      <strong>{row.name}</strong>
+                    </td>
+                    <td className="ds-table__num">{fmt.hours(row.ms)}</td>
+                    <td className="ds-table__num">{fmt.hours(row.billableMs)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            {admin && !person ? (
+              <Table id="by-person" caption={t.report.byPerson}>
                 <thead>
                   <tr>
-                    <th>{t.report.clientColumn}</th>
-                    <th className="num">{t.report.total}</th>
-                    <th className="num">{t.report.billable}</th>
+                    <th scope="col">{t.report.personColumn}</th>
+                    <th scope="col" className="ds-table__num">
+                      {t.report.total}
+                    </th>
+                    <th scope="col" className="ds-table__num">
+                      {t.report.billable}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.clients.map((row) => (
-                    <tr key={row.id ?? "own"}>
-                      <td className="row-name" data-label={t.report.clientColumn}>
-                        {row.name}
+                  {summary.people.map((row) => (
+                    <tr key={row.person}>
+                      <td>
+                        <strong>{personLabel(t, row.person, row.name)}</strong>
                       </td>
-                      <td className="num" data-label={t.report.total}>
-                        {fmt.hours(row.ms)}
-                      </td>
-                      <td className="num" data-label={t.report.billable}>
-                        {fmt.hours(row.billableMs)}
-                      </td>
+                      <td className="ds-table__num">{fmt.hours(row.ms)}</td>
+                      <td className="ds-table__num">{fmt.hours(row.billableMs)}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-            {admin && !person ? (
-              <div className="table-wrap">
-                <table className="table">
-                  <caption>{t.report.byPerson}</caption>
-                  <thead>
-                    <tr>
-                      <th>{t.report.personColumn}</th>
-                      <th className="num">{t.report.total}</th>
-                      <th className="num">{t.report.billable}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.people.map((row) => (
-                      <tr key={row.person}>
-                        <td className="row-name" data-label={t.report.personColumn}>
-                          {personLabel(t, row.person, row.name)}
-                        </td>
-                        <td className="num" data-label={t.report.total}>
-                          {fmt.hours(row.ms)}
-                        </td>
-                        <td className="num" data-label={t.report.billable}>
-                          {fmt.hours(row.billableMs)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              </Table>
             ) : null}
-            <div className="card">
-              <h2 className="tt-card-title">{t.report.missingTitle}</h2>
+            <div className="ds-card tt-form">
+              <h2 className="ds-type-title">{t.report.missingTitle}</h2>
               {report.missing.length === 0 ? (
-                <p className="tt-ok">{t.report.missingNone}</p>
+                <p className="ds-type-body-sm tt-ok">{t.report.missingNone}</p>
               ) : (
                 <ul className="tt-missing">
                   {report.missing.map((row) => (
                     <li key={row.person}>
                       <strong>{personLabel(t, row.person, row.name)}</strong>
-                      <span>{row.days.map((value) => fmt.dayShort(value)).join(", ")}</span>
+                      <span className="ds-type-body-sm">
+                        {row.days.map((value) => fmt.dayShort(value)).join(", ")}
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="tt-muted tt-small">{t.report.missingNote}</p>
+              <p className="ds-type-meta">{t.report.missingNote}</p>
             </div>
-          </div>
-          <div className="toolbar tt-exports">
-            <span className="tt-grow" />
-            <a className="btn btn-compact" href={api.exportUrl("entries", filter)} download>
-              {t.report.exportEntries}
-            </a>
-            <a
-              className="btn btn-primary btn-compact"
-              href={api.exportUrl("summary", filter)}
-              download
-            >
-              {t.report.exportSummary}
-            </a>
           </div>
         </>
       ) : (
-        !error && <p className="tt-muted">{t.loading}</p>
+        !error && <p className="ds-type-meta">{t.loading}</p>
       )}
     </section>
   );

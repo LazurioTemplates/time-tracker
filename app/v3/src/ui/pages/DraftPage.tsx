@@ -1,7 +1,9 @@
+import { EmptyState } from "design-system/react";
 import { useEffect, useState } from "react";
 import type { RuleIssue } from "../../domain/rules.ts";
 import { api } from "../api.ts";
 import { DraftCard } from "../components/DraftCard.tsx";
+import { PageHeader } from "../components/Layout.tsx";
 import { useApp } from "../context.ts";
 
 /**
@@ -21,27 +23,22 @@ export function DraftPage() {
 
   if (!admin)
     return (
-      <section>
-        <h1>{t.draft.title}</h1>
-        <p>{t.draft.onlyAdmin}</p>
+      <section className="tt-page">
+        <PageHeader title={t.draft.title} />
+        <EmptyState title={t.draft.onlyAdmin} icon="lock" headingLevel={2} />
       </section>
     );
 
   return (
-    <section>
-      <header className="page-header">
-        <div>
-          <h1>{t.draft.title}</h1>
-          <p>{t.draft.subtitle}</p>
-        </div>
-      </header>
+    <section className="tt-page">
+      <PageHeader title={t.draft.title} description={t.draft.subtitle} />
       <DraftCard />
-      <article className="card">
-        <h2 className="tt-card-title">{t.draft.check}</h2>
+      <article className="ds-card tt-form">
+        <h2 className="ds-type-title">{t.draft.check}</h2>
         {issues === null ? (
-          <p className="tt-muted">{t.draft.checkUnavailable}</p>
+          <p className="ds-type-meta">{t.draft.checkUnavailable}</p>
         ) : issues.length === 0 ? (
-          <p className="tt-ok">{t.draft.checkOk}</p>
+          <p className="ds-type-body-sm tt-ok">{t.draft.checkOk}</p>
         ) : (
           <ul className="tt-issues">
             {issues.map((issue) => (

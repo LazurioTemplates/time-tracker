@@ -1,19 +1,20 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Button, Dialog, TextArea, TextField } from "design-system/react";
+import { type FormEvent, useState } from "react";
 import { localDay, localTime } from "../../domain/calendar.ts";
 import { changeWallTime, type Occurrence, resolveInterval } from "../../domain/interval.ts";
 import { effective, needsEndCheck } from "../../domain/time.ts";
 import { api, type StoredEntry } from "../api.ts";
 import { errorText, personLabel, useApp } from "../context.ts";
-import { Notice, ProjectOptions } from "./common.tsx";
+import { Notice, ProjectSelect } from "./common.tsx";
 import { TimeCheck } from "./TimeCheck.tsx";
 
 /**
- * Corrects one entry, in the design system's dialog: day, start, end,
- * project and description. A running timer keeps running when the end stays
- * empty. Deleting asks once more.
+ * Corrects one entry in the design system's Dialog: day, start, end, project
+ * and description. A running timer keeps running when the end stays empty.
+ * Deleting asks once more.
  */
 export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: () => void }) {
-  const { session, now, changed, t } = useApp();
+  const { session, now, changed, t, language } = useApp();
   const tz = session.policy.timeZone;
   const value = effective(entry.value, now, session.policy);
   const running = value.endedAt === null;
@@ -32,11 +33,6 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
 
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -72,130 +68,120 @@ export function EntryDialog({ entry, onClose }: { entry: StoredEntry; onClose: (
     );
   };
 
+  const footer = confirmDelete ? (
+    <>
+      <span className="ds-type-body-sm tt-grow">{t.dialog.confirmDelete}</span>
+      <Button onClick={() => setConfirmDelete(false)}>{t.dialog.keep}</Button>
+      <Button
+        variant="danger"
+        icon="trash"
+        busy={busy}
+        locale={language}
+        onClick={() => void act(() => api.deleteEntry(entry.id, entry.revision))}
+      >
+        {t.dialog.yesDelete}
+      </Button>
+    </>
+  ) : (
+    <>
+      <Button
+        variant="quiet"
+        icon="trash"
+        className="tt-push-left"
+        disabled={busy}
+        onClick={() => setConfirmDelete(true)}
+      >
+        {t.dialog.delete}
+      </Button>
+      <Button onClick={onClose}>{t.dialog.cancel}</Button>
+      <Button
+        type="submit"
+        form="entry-form"
+        variant="primary"
+        busy={busy}
+        locale={language}
+        disabled={!checked.ok}
+      >
+        {t.dialog.save}
+      </Button>
+    </>
+  );
+
   return (
-    <dialog
-      ref={dialog}
-      className="dialog dialog-wide"
+    <Dialog
+      id="entry-dialog"
+      open
+      size="lg"
+      title={t.dialog.title}
+      description={personLabel(t, value.person, value.personName)}
       onClose={onClose}
-      aria-labelledby="entry-dialog-title"
+      locale={language}
+      footer={footer}
     >
-      <form onSubmit={save}>
-        <div className="dialog-header">
-          <div>
-            <h3 id="entry-dialog-title">{t.dialog.title}</h3>
-            <p className="tt-muted">{personLabel(t, value.person, value.personName)}</p>
-          </div>
+      <form id="entry-form" className="tt-form" onSubmit={save}>
+        {needsEndCheck(entry.value, now, session.policy) ? (
+          <Notice tone="warning" title={t.dialog.autoStoppedTitle}>
+            {t.dialog.autoStoppedText(session.policy.timerLimitHours)}
+          </Notice>
+        ) : null}
+        <div className="tt-row tt-row--3">
+          <TextField
+            id="edit-day"
+            type="date"
+            label={t.field.day}
+            locale={language}
+            required
+            value={form.day}
+            onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
+          />
+          <TextField
+            id="edit-from"
+            type="time"
+            label={t.field.from}
+            locale={language}
+            required
+            value={form.from}
+            onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
+          />
+          <TextField
+            id="edit-to"
+            type="time"
+            label={t.field.to}
+            {...(running ? { hint: t.field.stillRunning } : {})}
+            locale={language}
+            required={!running}
+            value={form.to}
+            onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
+          />
         </div>
-        <div className="dialog-body">
-          {needsEndCheck(entry.value, now, session.policy) ? (
-            <Notice tone="warning" title={t.dialog.autoStoppedTitle}>
-              {t.dialog.autoStoppedText(session.policy.timerLimitHours)}
-            </Notice>
-          ) : null}
-          <div className="tt-field-row">
-            <div className="field">
-              <label htmlFor="edit-day">{t.field.day}</label>
-              <input
-                id="edit-day"
-                type="date"
-                required
-                value={form.day}
-                onChange={(e) => setForm(changeWallTime(form, "day", e.target.value))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="edit-from">{t.field.from}</label>
-              <input
-                id="edit-from"
-                type="time"
-                required
-                value={form.from}
-                onChange={(e) => setForm(changeWallTime(form, "from", e.target.value))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="edit-to">
-                {t.field.to}{" "}
-                {running ? <span className="optional">{t.field.stillRunning}</span> : null}
-              </label>
-              <input
-                id="edit-to"
-                type="time"
-                required={!running}
-                value={form.to}
-                onChange={(e) => setForm(changeWallTime(form, "to", e.target.value))}
-              />
-            </div>
-          </div>
-          {form.to || running ? (
-            <TimeCheck
-              id="edit"
-              result={checked}
-              chosen={{ from: form.fromOccurrence, to: form.toOccurrence }}
-              onChoose={(field, choice) =>
-                setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: choice })
-              }
-            />
-          ) : null}
-          <div className="field">
-            <label htmlFor="edit-project">{t.field.project}</label>
-            <select
-              id="edit-project"
-              required
-              value={form.project}
-              onChange={(e) => setForm({ ...form, project: e.target.value })}
-            >
-              <ProjectOptions keep={entry.value.project} />
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="edit-note">{t.field.note}</label>
-            <textarea
-              id="edit-note"
-              rows={2}
-              maxLength={500}
-              value={form.note}
-              onChange={(e) => setForm({ ...form, note: e.target.value })}
-            />
-          </div>
-          {error ? <Notice tone="error">{error}</Notice> : null}
-        </div>
-        <div className="dialog-footer">
-          {confirmDelete ? (
-            <>
-              <span className="tt-muted tt-grow">{t.dialog.confirmDelete}</span>
-              <button
-                type="button"
-                className="btn btn-danger"
-                disabled={busy}
-                onClick={() => void act(() => api.deleteEntry(entry.id, entry.revision))}
-              >
-                {t.dialog.yesDelete}
-              </button>
-              <button type="button" className="btn" onClick={() => setConfirmDelete(false)}>
-                {t.dialog.keep}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn btn-danger tt-push-left"
-                disabled={busy}
-                onClick={() => setConfirmDelete(true)}
-              >
-                {t.dialog.delete}
-              </button>
-              <button type="button" className="btn" onClick={() => dialog.current?.close()}>
-                {t.dialog.cancel}
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={busy || !checked.ok}>
-                {busy ? t.saving : t.dialog.save}
-              </button>
-            </>
-          )}
-        </div>
+        {form.to || running ? (
+          <TimeCheck
+            id="edit"
+            result={checked}
+            chosen={{ from: form.fromOccurrence, to: form.toOccurrence }}
+            onChoose={(field, choice) =>
+              setForm({ ...form, [field === "from" ? "fromOccurrence" : "toOccurrence"]: choice })
+            }
+          />
+        ) : null}
+        <ProjectSelect
+          id="edit-project"
+          value={form.project}
+          keep={entry.value.project}
+          onChange={(project) => setForm({ ...form, project })}
+        />
+        <TextArea
+          id="edit-note"
+          label={t.field.note}
+          locale={language}
+          optional
+          rows={2}
+          maxLength={500}
+          value={form.note}
+          onChange={(e) => setForm({ ...form, note: e.target.value })}
+        />
+        {error ? <Notice tone="error">{error}</Notice> : null}
       </form>
-    </dialog>
+    </Dialog>
   );
 }

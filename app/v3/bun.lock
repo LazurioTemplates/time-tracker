@@ -8,6 +8,7 @@
         "@lazurio/module-kit": "github:Lazurio/module-kit#v0.3.0",
         "@lazurio/repository-db": "github:Lazurio/repository-db#v3.2.6",
         "@vitejs/plugin-react": "6.2.1",
+        "design-system": "github:LazurioTemplates/design-system#v2.0.0",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "vite": "8.3.5",
@@ -136,6 +137,8 @@
     "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
+
+    "design-system": ["design-system@github:LazurioTemplates/design-system#23af5a3", { "peerDependencies": { "astro": "7.4.5", "react": "19.3.1" }, "optionalPeers": ["astro", "react"] }, "LazurioTemplates-design-system-23af5a3", "sha512-gxn6K7t2+8fiX25t2Lpjn02+GK0z0dUPlBRcj8hsTaR5pCdzHj96RyKbcyW9lC2nh5Ei4J34/37mHcd4hnXXRw=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 

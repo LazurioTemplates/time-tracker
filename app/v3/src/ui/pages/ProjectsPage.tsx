@@ -1,13 +1,15 @@
+import { Badge, Button, Checkbox, EmptyState, Select, Table, TextField } from "design-system/react";
 import { type FormEvent, useState } from "react";
 import type { Client } from "../../domain/client.ts";
 import type { Project } from "../../domain/project.ts";
 import { api, type Stored } from "../api.ts";
 import { Notice } from "../components/common.tsx";
+import { PageHeader } from "../components/Layout.tsx";
 import { errorText, useApp } from "../context.ts";
 
 /** Projects and clients: everyone reads them, the application admin keeps them. */
 export function ProjectsPage() {
-  const { session, catalog, changed, t } = useApp();
+  const { session, catalog, changed, t, language } = useApp();
   const admin = session.viewer.role === "admin";
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,65 +58,62 @@ export function ProjectsPage() {
   };
   const state = (archived: boolean) =>
     archived ? (
-      <span className="badge badge-draft">{t.projects.archived}</span>
+      <Badge icon={false}>{t.projects.archived}</Badge>
     ) : (
-      <span className="badge badge-verified">{t.projects.active}</span>
+      <Badge tone="success">{t.projects.active}</Badge>
     );
   const actions = (archived: boolean, onRename: () => void, onToggle: () => void) => (
-    <td className="num" data-label={t.projects.actions}>
-      <button
-        type="button"
-        className="btn btn-ghost btn-compact"
-        disabled={busy}
-        onClick={onRename}
-      >
+    <td className="ds-table__num ds-table__nowrap">
+      <Button variant="quiet" size="sm" icon="edit-pencil" disabled={busy} onClick={onRename}>
         {t.projects.rename}
-      </button>
-      <button
-        type="button"
-        className="btn btn-ghost btn-compact"
-        disabled={busy}
-        onClick={onToggle}
-      >
+      </Button>
+      <Button variant="quiet" size="sm" disabled={busy} onClick={onToggle}>
         {archived ? t.projects.restore : t.projects.archive}
-      </button>
+      </Button>
     </td>
   );
 
   return (
-    <section>
-      <header className="page-header">
-        <div>
-          <h1>{t.projects.title}</h1>
-          <p>{admin ? t.projects.subtitleAdmin : t.projects.subtitleUser}</p>
-        </div>
-      </header>
+    <section className="tt-page">
+      <PageHeader
+        title={t.projects.title}
+        description={admin ? t.projects.subtitleAdmin : t.projects.subtitleUser}
+      />
       {error ? <Notice tone="error">{error}</Notice> : null}
-      <div className="table-wrap tt-block">
-        <table className="table">
-          <caption>{t.projects.projects}</caption>
+      {catalog.projects.length === 0 ? (
+        <EmptyState
+          title={admin ? t.projects.emptyAdmin : t.projects.emptyUser}
+          icon="folder"
+          headingLevel={2}
+        />
+      ) : (
+        <Table id="projects" caption={t.projects.projects}>
           <thead>
             <tr>
-              <th>{t.projects.project}</th>
-              <th>{t.projects.client}</th>
-              <th>{t.projects.billable}</th>
-              <th>{t.projects.state}</th>
-              {admin ? <th className="num">{t.projects.actions}</th> : null}
+              <th scope="col">{t.projects.project}</th>
+              <th scope="col">{t.projects.client}</th>
+              <th scope="col">{t.projects.billable}</th>
+              <th scope="col">{t.projects.state}</th>
+              {admin ? (
+                <th scope="col" className="ds-table__num">
+                  {t.projects.actions}
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {catalog.projects.map((row: Stored<Project>) => (
               <tr key={row.id}>
-                <td className="row-name" data-label={t.projects.project}>
-                  {row.value.name}
+                <td>
+                  <strong>{row.value.name}</strong>
                 </td>
-                <td data-label={t.projects.client}>
+                <td>
                   {row.value.client === null
                     ? t.ownWork
                     : (clientNames.get(row.value.client) ?? row.value.client)}
                 </td>
-                <td data-label={t.projects.billable}>{row.value.billable ? t.yes : t.no}</td>
-                <td data-label={t.projects.state}>{state(row.value.archived)}</td>
+                <td>{row.value.billable ? t.yes : t.no}</td>
+                <td>{state(row.value.archived)}</td>
                 {admin
                   ? actions(
                       row.value.archived,
@@ -132,112 +131,108 @@ export function ProjectsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-        {catalog.projects.length === 0 ? (
-          <p className="tt-empty tt-pad">{admin ? t.projects.emptyAdmin : t.projects.emptyUser}</p>
-        ) : null}
-      </div>
+        </Table>
+      )}
       {admin ? (
-        <form className="card tt-block" onSubmit={addProject}>
-          <h2 className="tt-card-title">{t.projects.newProject}</h2>
-          <div className="tt-field-row">
-            <div className="field tt-span-2">
-              <label htmlFor="project-name">{t.projects.name}</label>
-              <input
-                id="project-name"
-                required
-                maxLength={120}
-                value={project.name}
-                onChange={(e) => setProject({ ...project, name: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="project-client">{t.projects.client}</label>
-              <select
-                id="project-client"
-                value={project.client}
-                onChange={(e) => setProject({ ...project, client: e.target.value })}
-              >
-                <option value="">{t.ownWork}</option>
-                {catalog.clients
-                  .filter((row) => !row.value.archived)
-                  .map((row) => (
-                    <option key={row.id} value={row.id}>
-                      {row.value.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-          <label className="tt-check">
-            <input
-              type="checkbox"
-              checked={project.billable}
-              onChange={(e) => setProject({ ...project, billable: e.target.checked })}
-            />
-            {t.projects.billableCheck}
-          </label>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {t.projects.createProject}
-          </button>
-        </form>
-      ) : null}
-      <div className="table-wrap tt-block">
-        <table className="table">
-          <caption>{t.projects.clients}</caption>
-          <thead>
-            <tr>
-              <th>{t.projects.client}</th>
-              <th className="num">{t.projects.count}</th>
-              <th>{t.projects.state}</th>
-              {admin ? <th className="num">{t.projects.actions}</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {catalog.clients.map((row: Stored<Client>) => (
-              <tr key={row.id}>
-                <td className="row-name" data-label={t.projects.client}>
-                  {row.value.name}
-                </td>
-                <td className="num" data-label={t.projects.count}>
-                  {catalog.projects.filter((item) => item.value.client === row.id).length}
-                </td>
-                <td data-label={t.projects.state}>{state(row.value.archived)}</td>
-                {admin
-                  ? actions(
-                      row.value.archived,
-                      () => rename(row, (value) => api.saveClient(row.id, value, row.revision)),
-                      () =>
-                        void run(() =>
-                          api.saveClient(
-                            row.id,
-                            { ...row.value, archived: !row.value.archived },
-                            row.revision,
-                          ),
-                        ),
-                    )
-                  : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {admin ? (
-        <form className="card tt-block" onSubmit={addClient}>
-          <h2 className="tt-card-title">{t.projects.newClient}</h2>
-          <div className="field">
-            <label htmlFor="client-name">{t.projects.name}</label>
-            <input
-              id="client-name"
+        <form className="ds-card tt-form" onSubmit={addProject}>
+          <h2 className="ds-type-title">{t.projects.newProject}</h2>
+          <div className="tt-row tt-row--wide">
+            <TextField
+              id="project-name"
+              label={t.projects.name}
+              locale={language}
               required
               maxLength={120}
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
+              value={project.name}
+              onChange={(e) => setProject({ ...project, name: e.target.value })}
+            />
+            <Select
+              id="project-client"
+              label={t.projects.client}
+              locale={language}
+              value={project.client}
+              onChange={(e) => setProject({ ...project, client: e.target.value })}
+              options={[
+                { value: "", label: t.ownWork },
+                ...catalog.clients
+                  .filter((row) => !row.value.archived)
+                  .map((row) => ({ value: row.id, label: row.value.name })),
+              ]}
             />
           </div>
-          <button type="submit" className="btn" disabled={busy}>
-            {t.projects.addClient}
-          </button>
+          <Checkbox
+            id="project-billable"
+            label={t.projects.billableCheck}
+            checked={project.billable}
+            onChange={(e) => setProject({ ...project, billable: e.target.checked })}
+          />
+          <div className="tt-actions">
+            <Button type="submit" variant="primary" icon="plus" busy={busy} locale={language}>
+              {t.projects.createProject}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      <Table id="clients" caption={t.projects.clients}>
+        <thead>
+          <tr>
+            <th scope="col">{t.projects.client}</th>
+            <th scope="col" className="ds-table__num">
+              {t.projects.count}
+            </th>
+            <th scope="col">{t.projects.state}</th>
+            {admin ? (
+              <th scope="col" className="ds-table__num">
+                {t.projects.actions}
+              </th>
+            ) : null}
+          </tr>
+        </thead>
+        <tbody>
+          {catalog.clients.map((row: Stored<Client>) => (
+            <tr key={row.id}>
+              <td>
+                <strong>{row.value.name}</strong>
+              </td>
+              <td className="ds-table__num">
+                {catalog.projects.filter((item) => item.value.client === row.id).length}
+              </td>
+              <td>{state(row.value.archived)}</td>
+              {admin
+                ? actions(
+                    row.value.archived,
+                    () => rename(row, (value) => api.saveClient(row.id, value, row.revision)),
+                    () =>
+                      void run(() =>
+                        api.saveClient(
+                          row.id,
+                          { ...row.value, archived: !row.value.archived },
+                          row.revision,
+                        ),
+                      ),
+                  )
+                : null}
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      {admin ? (
+        <form className="ds-card tt-form" onSubmit={addClient}>
+          <h2 className="ds-type-title">{t.projects.newClient}</h2>
+          <TextField
+            id="client-name"
+            label={t.projects.name}
+            locale={language}
+            required
+            maxLength={120}
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+          />
+          <div className="tt-actions">
+            <Button type="submit" icon="plus" busy={busy} locale={language}>
+              {t.projects.addClient}
+            </Button>
+          </div>
         </form>
       ) : null}
     </section>

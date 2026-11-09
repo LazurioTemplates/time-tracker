@@ -1,3 +1,4 @@
+import { Table } from "design-system/react";
 import type { Summary } from "../../domain/report.ts";
 import { useApp } from "../context.ts";
 
@@ -13,53 +14,55 @@ export function DayChart({ summary }: { summary: Summary }) {
   const week = summary.days.length <= 7;
   return (
     <figure className="tt-chart">
-      <figcaption className="tt-card-title">{t.report.byDay}</figcaption>
-      <div className={`tt-bars${week ? " tt-bars-week" : ""}`}>
+      <figcaption className="ds-type-title">{t.report.byDay}</figcaption>
+      <div className={`tt-bars${week ? " tt-bars--week" : ""}`}>
         {summary.days.map((row) => {
           const label = `${fmt.dayShort(row.day)}: ${fmt.hours(row.ms)}`;
           return (
-            <div key={row.day} className="tt-bar-column" role="img" aria-label={label}>
-              <span className="tt-bar-tooltip" aria-hidden="true">
+            <div key={row.day} className="tt-bars__column" role="img" aria-label={label}>
+              <span className="tt-bars__tooltip" aria-hidden="true">
                 {label}
               </span>
-              <div className="tt-bar-track">
+              <div className="tt-bars__track">
                 {row.ms > 0 ? (
-                  <div className="tt-bar" style={{ height: `${(row.ms / max) * 100}%` }} />
+                  <div className="tt-bars__bar" style={{ height: `${(row.ms / max) * 100}%` }} />
                 ) : null}
               </div>
               {week ? (
-                <span className="tt-bar-value">{row.ms > 0 ? fmt.hours(row.ms) : "–"}</span>
+                <span className="ds-numeric tt-bars__value">
+                  {row.ms > 0 ? fmt.hours(row.ms) : "–"}
+                </span>
               ) : null}
-              <span className={`tt-bar-label${row.workday ? "" : " tt-bar-label-off"}`}>
+              <span className={`tt-bars__label${row.workday ? "" : " tt-bars__label--off"}`}>
                 {week ? fmt.weekday(row.day) : Number(row.day.slice(8))}
               </span>
             </div>
           );
         })}
       </div>
-      <details className="tt-chart-table">
+      <details className="tt-chart__table">
         <summary>{t.report.asTable}</summary>
-        <table className="table table-compact">
+        <Table id="day-hours" caption={t.report.byDay} hideCaption density="compact">
           <thead>
             <tr>
-              <th>{t.report.dayColumn}</th>
-              <th className="num">{t.report.hoursColumn}</th>
+              <th scope="col">{t.report.dayColumn}</th>
+              <th scope="col" className="ds-table__num">
+                {t.report.hoursColumn}
+              </th>
             </tr>
           </thead>
           <tbody>
             {summary.days.map((row) => (
               <tr key={row.day}>
-                <td data-label={t.report.dayColumn}>
+                <td>
                   {fmt.dayShort(row.day)}
                   {row.workday ? "" : t.report.dayOff}
                 </td>
-                <td className="num" data-label={t.report.hoursColumn}>
-                  {fmt.hours(row.ms)}
-                </td>
+                <td className="ds-table__num">{fmt.hours(row.ms)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </details>
     </figure>
   );

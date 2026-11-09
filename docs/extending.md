@@ -68,33 +68,50 @@ git merge --no-ff <commit>
 
 ## The design system
 
-`app/v3/design-system/` is the release v1.0.0 of
-`LazurioTemplates/design-system`, merged with its history as a subtree and
-recorded in `app/v3/design-system.lock.json` (repository, tag, commit and the
-tree of the directory). The App reads its tokens (`app/v1/src/tokens.ts`) and
-its stylesheet (`app/v1/src/styles/global.css`) from there and copies nothing;
-`tests/design-system.test.ts` fails when the directory differs from the
-locked tree.
+The look is the package `design-system` of
+[`LazurioTemplates/design-system`](https://github.com/LazurioTemplates/design-system),
+a Git dependency on a released tag in `app/v3/package.json`:
 
-A newer release of the design system (2.0.0 is planned) arrives the same way
-as a template release, as a merge into the subtree:
-
-```bash
-git fetch https://github.com/LazurioTemplates/design-system.git "refs/tags/<tag>"
-test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "<commit>"
-git merge --no-ff -X subtree=app/v3/design-system <commit>
-git rev-parse HEAD:app/v3/design-system   # the new tree for the lock
+```json
+"design-system": "github:LazurioTemplates/design-system#v2.0.0"
 ```
 
-Update the lock to the new tag, commit and tree in the same pull request, run
-`bun run check` and `bun run build`, and look at every page in a browser: a
-major release may rename classes the App uses. A later template release will
-do this for the template; an Organization takes it with that release.
+`bun.lock` records the tag and the `sha512` of what was installed, and
+`bun install --frozen-lockfile` installs exactly that. The App imports
+`design-system/styles.css` once (`app/v3/src/ui/main.tsx`) and its components
+from `design-system/react`; `app/v3/src/ui/styles.css` adds only the App's own
+layout and parts with no component of the design system, in `tt-` classes
+over the `--ds-*` tokens. `tests/design-system.test.ts` holds this: a released
+tag, no copy and no import by a path, no literal colour and no rule on a class
+of the design system.
 
-An Organization with its own design system (adopted from the same template,
-so it shares this history) merges a commit of its own design system into the
-subtree the same way and records it in the lock; Time Tracker then wears the
-Organization's brand. The App never reads another repository at run time.
+- **A newer release** of the design system is a new tag in that line:
+  `bun install`, `bun run check`, `bun run build`, a look at every page in
+  both languages and on a phone, and the release's `CHANGELOG.md` for what the
+  App must change. A template release does this for the template; an
+  Organization takes it with that release or on its own.
+- **The Organization's own design system.** An Organization that adopted the
+  design system template and released its own changes only the dependency, to
+  its private repository over SSH, which works with the Environment's key:
+
+  ```json
+  "design-system": "git+ssh://git@github.com/<Organization>/design-system.git#v<version>"
+  ```
+
+  The imports stay the same, because both packages are named `design-system`.
+  A new brand is a new release of the Organization's design system and a new
+  pin here.
+- **Known limitation: CI with a private design system.** The module's GitHub
+  Actions cannot install a private `git+ssh` dependency without read access to
+  that repository (for example a read-only deploy key as a secret and an SSH
+  agent step). How Lazurio sets that up for modules is open in
+  [Lazurio/LazurioPlatform#915](https://github.com/Lazurio/LazurioPlatform/issues/915);
+  until then such a module's CI fails at `bun install` while it passes on the
+  Environment. Setting up access is the Organization's Admin's work, never
+  the agent's own keys or secrets.
+
+The App never reads another repository at run time and never imports the
+design system by a relative path.
 
 ## Stack profile releases
 

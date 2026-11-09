@@ -1,4 +1,0 @@
-# The App's tests live in tests/. The design system's own tests come with its
-# subtree (design-system/app/v1/tests) and run in its repository, not here.
-[test]
-root = "./tests"

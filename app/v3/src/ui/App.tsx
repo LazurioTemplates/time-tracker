@@ -1,3 +1,4 @@
+import { Button, EmptyState } from "design-system/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { localDay } from "../domain/calendar.ts";
 import { type Language, messages } from "../language/messages.ts";
@@ -125,28 +126,33 @@ export function App() {
 
   if (error)
     return (
-      <Blocked title={t.blocked.loadFailed}>
+      <Blocked
+        title={t.blocked.loadFailed}
+        icon="warning-circle"
+        actions={
+          <Button variant="primary" onClick={() => void load()}>
+            {t.blocked.retry}
+          </Button>
+        }
+      >
         <p>{errorText(t, error)}</p>
-        <button type="button" className="btn btn-primary" onClick={() => void load()}>
-          {t.blocked.retry}
-        </button>
       </Blocked>
     );
-  if (!session) return <Blocked title={t.blocked.loading} />;
+  if (!session) return <Blocked title={t.blocked.loading} icon="clock" />;
   if (session.viewer.role === null)
     return (
-      <Blocked title={t.blocked.noRoleTitle}>
+      <Blocked title={t.blocked.noRoleTitle} icon="lock">
         <p>{t.blocked.noRoleText}</p>
       </Blocked>
     );
   if (!session.available.ok)
     return (
-      <Blocked title={t.blocked.noDataTitle}>
+      <Blocked title={t.blocked.noDataTitle} icon="folder">
         <p>{t.blocked.noDataText}</p>
-        <p className="tt-muted">{session.available.message}</p>
+        <p className="ds-type-meta">{session.available.message}</p>
       </Blocked>
     );
-  if (!state) return <Blocked title={t.blocked.loading} />;
+  if (!state) return <Blocked title={t.blocked.loading} icon="clock" />;
   return (
     <AppContext.Provider value={state}>
       <Layout route={route}>
@@ -177,22 +183,31 @@ function Page({ route }: { route: Route }) {
 function NotFound() {
   const { t } = useApp();
   return (
-    <section>
-      <h1>{t.blocked.notFound}</h1>
-      <p>
-        <a href="#/">{t.blocked.back}</a>
-      </p>
-    </section>
+    <EmptyState
+      title={t.blocked.notFound}
+      icon="search"
+      headingLevel={2}
+      actions={<Button href="#/">{t.blocked.back}</Button>}
+    />
   );
 }
 
-function Blocked({ title, children }: { title: string; children?: ReactNode }) {
+function Blocked({
+  title,
+  icon,
+  actions,
+  children,
+}: {
+  title: string;
+  icon: "clock" | "lock" | "folder" | "warning-circle";
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <main className="tt-blocked">
-      <div className="card">
-        <h1>{title}</h1>
+      <EmptyState title={title} icon={icon} headingLevel={2} actions={actions}>
         {children}
-      </div>
+      </EmptyState>
     </main>
   );
 }

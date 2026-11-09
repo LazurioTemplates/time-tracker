@@ -1,3 +1,4 @@
+import { Select } from "design-system/react";
 import { localDay, localTime, utcOffsetText } from "../../domain/calendar.ts";
 import type { FieldResolution, IntervalResult, Occurrence } from "../../domain/interval.ts";
 import { useApp } from "../context.ts";
@@ -24,7 +25,7 @@ export function TimeCheck({
   chosen: { from?: Occurrence | undefined; to?: Occurrence | undefined };
   onChoose: (field: "from" | "to", occurrence: Occurrence) => void;
 }) {
-  const { session, fmt, t } = useApp();
+  const { session, fmt, t, language } = useApp();
   const tz = session.policy.timeZone;
   const fields: ["from" | "to", FieldResolution | null][] = [
     ["from", result.from],
@@ -34,33 +35,31 @@ export function TimeCheck({
     (entry): entry is ["from" | "to", FieldResolution] => entry[1]?.moments.length === 2,
   );
   const problem = result.ok ? null : result;
+  const moment = (iso: string) =>
+    `${fmt.date(localDay(iso, tz))} ${localTime(iso, tz)} (${utcOffsetText(Date.parse(iso), tz)})`;
   return (
     <>
       {repeated.map(([field, info]) => {
         const [earlier = 0, later = 0] = info.moments;
-        const value = chosen[field] ?? info.occurrence ?? "";
         return (
-          <div className="field" key={field}>
-            <label htmlFor={`${id}-${field}-occurrence`}>
-              {t.field.occurrence}: {fmt.date(info.day)} {info.time}
-            </label>
-            <select
-              id={`${id}-${field}-occurrence`}
-              required
-              value={value}
-              onChange={(e) => onChoose(field, e.target.value as Occurrence)}
-            >
-              <option value="" disabled>
-                {t.server.ambiguousTime(fmt.date(info.day), info.time)}
-              </option>
-              <option value="earlier">
-                {t.field.occurrenceOption(true, utcOffsetText(earlier, tz))}
-              </option>
-              <option value="later">
-                {t.field.occurrenceOption(false, utcOffsetText(later, tz))}
-              </option>
-            </select>
-          </div>
+          <Select
+            key={field}
+            id={`${id}-${field}-occurrence`}
+            label={`${t.field.occurrence}: ${fmt.date(info.day)} ${info.time}`}
+            hint={t.server.ambiguousTime(fmt.date(info.day), info.time)}
+            locale={language}
+            required
+            placeholder={t.field.chooseOccurrence}
+            value={chosen[field] ?? info.occurrence ?? ""}
+            onChange={(event) => onChoose(field, event.target.value as Occurrence)}
+            options={[
+              {
+                value: "earlier",
+                label: t.field.occurrenceOption(true, utcOffsetText(earlier, tz)),
+              },
+              { value: "later", label: t.field.occurrenceOption(false, utcOffsetText(later, tz)) },
+            ]}
+          />
         );
       })}
       {problem?.problem === "missing" ? (
@@ -70,10 +69,10 @@ export function TimeCheck({
       ) : null}
       {problem?.problem === "order" ? <Notice tone="error">{t.server.endAfterStart}</Notice> : null}
       {result.ok && result.endedAt !== null && repeated.length > 0 ? (
-        <p className="tt-muted tt-small">
+        <p className="ds-type-meta">
           {t.field.willStore(
-            `${fmt.date(localDay(result.startedAt, tz))} ${localTime(result.startedAt, tz)} (${utcOffsetText(Date.parse(result.startedAt), tz)})`,
-            `${fmt.date(localDay(result.endedAt, tz))} ${localTime(result.endedAt, tz)} (${utcOffsetText(Date.parse(result.endedAt), tz)})`,
+            moment(result.startedAt),
+            moment(result.endedAt),
             stopwatch(Date.parse(result.endedAt) - Date.parse(result.startedAt)).replace(
               /:\d\d$/,
               "",

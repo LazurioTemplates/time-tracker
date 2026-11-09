@@ -104,11 +104,11 @@ the Organization's identity:
 | File | Keep the Organization's | Take from the template |
 | --- | --- | --- |
 | `lazurio.module.json` | `id`, `company`, `port_leases` | `apps`, `default_app` (`app/v3/package.json`) |
-| `app/v3/package.json` | `lazurio.runtime`: `id`, `company`, `module` | everything else |
+| `app/v3/package.json` | `lazurio.runtime`: `id`, `company`, `module`; the `design-system` dependency when the Organization has released its own design system (`git+ssh://git@github.com/<Org>/design-system.git#v<version>`, [`extending.md`](extending.md#the-design-system)) | everything else |
+| `app/v3/bun.lock` | | the template's, then `bun install` when the `design-system` dependency is the Organization's |
 | `app/v3/config/data-repository.json` | the `remote` of `<Org>/<slug>-data` exactly as `db/repository-db.yaml` names it, `branch: v3` | |
 | `app/v3/src/instance/settings.ts` | `organization` (its display name) and `language` (step 1) | the rest, unless the person asks for another time zone, timer limit or working week |
 | `AGENTS.md` | a section "This Organization's copy" at the end: who reviews, where the data lives, the language | the rest |
-| `app/v3/design-system/` | | all of it, unchanged |
 | anything else | | the template's |
 
 Delete what only the scaffold had (`app/v3/src/App.tsx`, `app/v3/src/main.tsx`, `app/v3/src/greeting*.ts`,
@@ -122,6 +122,12 @@ lets later releases arrive as ordinary merges:
 git merge-base --is-ancestor <commit> HEAD
 cd app/v3 && bun install --frozen-lockfile && bun run check && bun run build
 ```
+
+With the Organization's own design system in the dependency, run `bun install`
+instead of `--frozen-lockfile` once and commit `bun.lock`. Its CI cannot
+install a private design system yet (Lazurio/LazurioPlatform#915): say so in
+the pull request, show the check run on the Environment, and leave access for
+CI to the Organization's Admin.
 
 Push the branch and open a pull request in the Module. Do not merge it.
 

@@ -47,9 +47,15 @@ on the App generation `app/v3` and the stack profile `app-data@2026.11`.
   JSON Schemas and a validator without dependencies, which repository-db runs
   before every publish; fictional example records in Czech and English
   (`app/v3/seed/cs`, `app/v3/seed/en`).
-- **Design system** `LazurioTemplates/design-system` v1.0.0, merged with its
-  history as `app/v3/design-system`; the App reads its tokens and stylesheet
-  from there and takes later releases by merging their tags.
+- **Design system** as the package `design-system` of
+  `LazurioTemplates/design-system` at the released tag v2.0.0
+  (`github:LazurioTemplates/design-system#v2.0.0`, locked in `bun.lock`): its
+  styles once and its React components (Button, fields, Select, Table, Card,
+  Dialog, Nav, Badge, Alert, EmptyState, Logo); the App's own layout uses its
+  `--ds-*` tokens only. An Organization with its own design system changes
+  that one dependency. The subtree of 1.0.0 that an earlier draft of this
+  release carried is gone; its history stays in Git and nothing of it is
+  imported.
 - **For agents:** the skills `record-time`, `timesheet-for-invoicing` and
   `find-missing-days`, and WebMCP tools for the main actions; none publishes
   or deletes.

@@ -1,62 +1,70 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { contrastRatio, roleColor, tokens } from "../design-system/app/v1/src/tokens.ts";
-import lock from "../design-system.lock.json";
+import packageJson from "../package.json";
 
-// The design system is a merged release of LazurioTemplates/design-system,
-// kept unchanged in app/v3/design-system so that a newer release arrives by
-// merging its tag (docs/extending.md). These tests hold that promise.
+// The design system is the package `design-system` at a released tag
+// (LazurioTemplates/design-system, docs/adoption.md "Using the design system in
+// another module"; Module Standard: a design system's assets come as a
+// dependency on its package, never by a relative path).
 const app = resolve(import.meta.dir, "..");
-const git = (...args: string[]) => spawnSync("git", ["-C", app, ...args], { encoding: "utf8" });
+const read = (path: string) => readFileSync(join(app, path), "utf8");
+const files = (directory: string): string[] =>
+  readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? files(join(directory, entry.name)) : [join(directory, entry.name)],
+  );
 
 describe("the design system", () => {
-  test("is exactly the locked release, untouched", () => {
-    expect(lock.prefix).toBe("app/v3/design-system");
-    const tree = git("rev-parse", "HEAD:./design-system");
-    expect(tree.status).toBe(0);
-    expect(tree.stdout.trim()).toBe(lock.tree);
-    // No change of it waits in the working tree either.
-    expect(git("diff", "--quiet", "HEAD", "--", "design-system").status).toBe(0);
+  test("is a dependency on a released tag, locked in bun.lock", () => {
+    const pin = (packageJson.dependencies as Record<string, string>)["design-system"];
+    expect(pin).toMatch(/^github:LazurioTemplates\/design-system#v\d+\.\d+\.\d+$/);
+    const lock = read("bun.lock");
+    expect(lock).toContain(`"design-system": "${pin}"`);
+    // Bun records the tag's object and the tarball's sha512.
+    expect(lock).toMatch(
+      /"design-system@github:LazurioTemplates\/design-system#[0-9a-f]{7,40}",[^\n]*"sha512-[A-Za-z0-9+/=]+"/,
+    );
   });
 
-  test("its tokens give every role a colour in both themes, readable as text", () => {
-    for (const theme of ["light", "dark"] as const) {
-      const text = roleColor(tokens, theme, "text");
-      expect(contrastRatio(text, roleColor(tokens, theme, "surface"))).toBeGreaterThanOrEqual(4.5);
-      expect(
-        contrastRatio(roleColor(tokens, theme, "on-accent"), roleColor(tokens, theme, "accent")),
-      ).toBeGreaterThanOrEqual(4.5);
+  test("is imported from the package only, never by a path or as a copy", () => {
+    expect(existsSync(join(app, "design-system"))).toBe(false);
+    expect(existsSync(join(app, "design-system.lock.json"))).toBe(false);
+    for (const path of files(join(app, "src"))) {
+      const text = readFileSync(path, "utf8");
+      expect(text).not.toMatch(/from "(\.\.?\/)+[^"]*design-system/);
+      expect(text).not.toMatch(/import "(\.\.?\/)+[^"]*design-system/);
     }
-  });
-
-  test("the App takes it from the subtree and copies none of it", () => {
-    const main = readFileSync(join(app, "src/ui/main.tsx"), "utf8");
-    expect(main).toContain('from "../../design-system/app/v1/src/tokens.ts"');
-    expect(main).toContain('import "../../design-system/app/v1/src/styles/global.css"');
-    const files = (directory: string): string[] =>
-      readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
-        entry.isDirectory() ? files(join(directory, entry.name)) : [join(directory, entry.name)],
-      );
-    expect(files(join(app, "src")).filter((path) => path.endsWith("tokens.json"))).toEqual([]);
-    expect(existsSync(join(app, "src/design-system"))).toBe(false);
-  });
-
-  test("the App's own styles name tokens, never a colour", () => {
-    const css = readFileSync(join(app, "src/ui/styles.css"), "utf8").replace(
-      /\/\*[\s\S]*?\*\//g,
-      "",
+    const main = read("src/ui/main.tsx");
+    expect(main).toContain('import "design-system/styles.css";');
+    expect(main.indexOf('import "design-system/styles.css";')).toBeLessThan(
+      main.indexOf('import "./styles.css";'),
     );
+  });
+
+  test("the App's own styles use its tokens and never restyle its components", () => {
+    const css = read("src/ui/styles.css").replace(/\/\*[\s\S]*?\*\//g, "");
     expect(css.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(/gi) ?? []).toEqual([]);
-    // The App's own classes start with `tt-`. It touches only these classes of
-    // the design system: the frame's height and links, selects in a field
-    // (which the design system leaves unstyled) and the space under a notice.
-    const touched = new Set(
-      [...css.matchAll(/^\.([a-z][a-z0-9-]*)/gm)]
-        .map((match) => match[1] ?? "")
-        .filter((name) => !name.startsWith("tt-")),
+    expect(css).not.toMatch(/var\(--(?!ds-)/);
+    const selectors = css
+      .split("}")
+      .map((block) => block.split("{")[0]?.trim() ?? "")
+      .filter((selector) => selector !== "" && !selector.startsWith("@"));
+    const classes = selectors.flatMap((selector) =>
+      [...selector.matchAll(/\.([a-z][a-z0-9_-]*)/g)].map((match) => match[1] ?? ""),
     );
-    expect([...touched].sort()).toEqual(["app", "app-nav", "field", "notice"]);
+    expect(classes.filter((name) => !name.startsWith("tt-"))).toEqual([]);
+  });
+
+  test("the interface uses the design system's classes and its own `tt-` ones only", () => {
+    const names = files(join(app, "src/ui"))
+      .filter((path) => path.endsWith(".tsx"))
+      .flatMap((path) =>
+        [...readFileSync(path, "utf8").matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)].flatMap(
+          (match) => (match[1] ?? match[2] ?? "").replace(/\$\{[^}]*\}/g, " ").split(/\s+/),
+        ),
+      )
+      .filter((name) => name !== "");
+    expect(names.length).toBeGreaterThan(20);
+    expect(names.filter((name) => !/^(ds|tt)-/.test(name))).toEqual([]);
   });
 });

@@ -1,16 +1,18 @@
+import { Button, TextField } from "design-system/react";
 import { type FormEvent, useEffect, useState } from "react";
 import { weekStart } from "../../domain/calendar.ts";
 import { durationMs, effective, entryDay, needsEndCheck } from "../../domain/time.ts";
 import { api, newId, type StoredEntry } from "../api.ts";
-import { Notice, ProjectOptions, useNames } from "../components/common.tsx";
+import { Notice, ProjectSelect, Stat, useNames } from "../components/common.tsx";
 import { EntryList } from "../components/EntryList.tsx";
+import { PageHeader } from "../components/Layout.tsx";
 import { ManualEntry } from "../components/ManualEntry.tsx";
 import { errorText, useApp } from "../context.ts";
 import { stopwatch } from "../format.ts";
 
 /** Today: the person's timer, time written by hand and this week's entries. */
 export function TodayPage() {
-  const { session, catalog, now, today, version, changed, edit, fmt, t } = useApp();
+  const { session, catalog, now, today, version, changed, edit, fmt, t, language } = useApp();
   const policy = session.policy;
   const self = session.viewer.person;
   const names = useNames();
@@ -66,13 +68,8 @@ export function TodayPage() {
   };
 
   return (
-    <section>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">{fmt.dayLong(today)}</p>
-          <h1>{t.today.title}</h1>
-        </div>
-      </header>
+    <section className="tt-page">
+      <PageHeader eyebrow={fmt.dayLong(today)} title={t.today.title} />
       {error ? <Notice tone="error">{error}</Notice> : null}
       {autoStopped.length > 0 ? (
         <Notice tone="warning" title={t.today.forgottenTitle}>
@@ -80,89 +77,83 @@ export function TodayPage() {
         </Notice>
       ) : null}
       <div className="tt-today">
-        <div className="tt-today-main">
-          <div className={`card tt-timer${running ? " tt-timer-running" : ""}`}>
+        <div className="tt-today__main">
+          <div className={`ds-card tt-form tt-timer${running ? " tt-timer--running" : ""}`}>
             {!self ? (
               <>
-                <h2 className="tt-card-title">{t.today.timer}</h2>
-                <p className="tt-muted">{t.today.timerNoPerson}</p>
+                <h2 className="ds-type-title">{t.today.timer}</h2>
+                <p className="ds-type-body-sm">{t.today.timerNoPerson}</p>
               </>
             ) : running ? (
               <>
-                <p className="eyebrow">{t.today.measuring}</p>
-                <h2 className="tt-card-title">
+                <p className="ds-type-meta tt-eyebrow">{t.today.measuring}</p>
+                <h2 className="ds-type-title">
                   {names.project(running.value.project)}
-                  <span className="tt-entry-client"> · {names.client(running.value.project)}</span>
+                  <span className="tt-entry__client"> · {names.client(running.value.project)}</span>
                 </h2>
-                {running.value.note ? <p className="tt-muted">{running.value.note}</p> : null}
-                <p className="tt-stopwatch" role="timer" aria-label={t.today.elapsed}>
+                {running.value.note ? (
+                  <p className="ds-type-body-sm">{running.value.note}</p>
+                ) : null}
+                <p className="ds-numeric tt-stopwatch" role="timer" aria-label={t.today.elapsed}>
                   {stopwatch(durationMs(running.value, now, policy))}
                 </p>
-                <p className="tt-muted">
+                <p className="ds-type-meta">
                   {t.today.since(fmt.time(running.value.startedAt), policy.timerLimitHours)}
                 </p>
-                <button
-                  type="button"
-                  className="btn btn-primary tt-wide"
-                  disabled={busy}
+                <Button
+                  variant="primary"
+                  block
+                  icon="check"
+                  busy={busy}
+                  locale={language}
                   onClick={() => void run(() => api.stop(running.id, running.revision))}
                 >
-                  {busy ? t.saving : t.today.stop}
-                </button>
+                  {t.today.stop}
+                </Button>
               </>
             ) : (
-              <form onSubmit={start}>
-                <h2 className="tt-card-title">{t.today.question}</h2>
-                <div className="field">
-                  <label htmlFor="timer-project">{t.today.project}</label>
-                  <select
-                    id="timer-project"
-                    required
-                    value={chosen}
-                    onChange={(e) => setProject(e.target.value)}
-                  >
-                    {chosen ? null : <option value="">{t.today.noProjects}</option>}
-                    <ProjectOptions />
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="timer-note">
-                    {t.today.doing} <span className="optional">{t.field.optional}</span>
-                  </label>
-                  <input
-                    id="timer-note"
-                    maxLength={500}
-                    placeholder={t.today.placeholder}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                </div>
-                <button
+              <form className="tt-form" onSubmit={start}>
+                <h2 className="ds-type-title">{t.today.question}</h2>
+                <ProjectSelect
+                  id="timer-project"
+                  value={chosen}
+                  onChange={setProject}
+                  {...(chosen ? {} : { placeholder: t.today.noProjects })}
+                />
+                <TextField
+                  id="timer-note"
+                  label={t.today.doing}
+                  locale={language}
+                  optional
+                  maxLength={500}
+                  placeholder={t.today.placeholder}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+                <Button
                   type="submit"
-                  className="btn btn-primary tt-wide"
-                  disabled={busy || !chosen}
+                  variant="primary"
+                  block
+                  icon="clock"
+                  busy={busy}
+                  locale={language}
+                  disabled={!chosen}
                 >
-                  {busy ? t.today.starting : t.today.start}
-                </button>
+                  {t.today.start}
+                </Button>
               </form>
             )}
           </div>
-          <div className="tt-metrics">
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.today.todayMetric}</span>
-              <p className="metric">{fmt.hours(todayMs)}</p>
-            </div>
-            <div className="card tt-metric">
-              <span className="eyebrow">{t.today.weekMetric}</span>
-              <p className="metric">{fmt.hours(weekMs)}</p>
-            </div>
+          <div className="tt-stats tt-stats--2">
+            <Stat label={t.today.todayMetric} value={fmt.hours(todayMs)} />
+            <Stat label={t.today.weekMetric} value={fmt.hours(weekMs)} />
           </div>
         </div>
         <ManualEntry defaultProject={defaultProject} />
       </div>
-      <h2 className="tt-section-title">{self ? t.today.yourWeek : t.today.teamWeek}</h2>
+      <h2 className="ds-type-title tt-section">{self ? t.today.yourWeek : t.today.teamWeek}</h2>
       {entries === null ? (
-        <p className="tt-muted">{t.loading}</p>
+        <p className="ds-type-meta">{t.loading}</p>
       ) : (
         <EntryList
           entries={self ? own : entries}
