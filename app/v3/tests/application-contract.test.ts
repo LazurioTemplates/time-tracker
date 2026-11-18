@@ -128,6 +128,37 @@ describe("the page learns the writer rule from its session", () => {
   });
 });
 
+describe("a runtime stating production never writes without the writer", () => {
+  const production = {
+    ...hostedEnvironment(),
+    LAZURIO_RUNTIME_DATA_WRITER: undefined,
+    LAZURIO_RUNTIME_DEPLOYMENT: "production",
+  };
+
+  test("the Environment's own entry is refused, and its session offers no writing", async () => {
+    const { handle } = api(production);
+    expect((await handle(write({ role: "environment" }))).status).toBe(409);
+    const session = await handle(
+      gatewayRequest("/api/session", { caller: { role: "environment" } }),
+    );
+    expect((await session.json()).mayWrite).toBe(false);
+  });
+
+  test("a local entry is refused too", async () => {
+    const env = { ...localEnvironment(), LAZURIO_RUNTIME_DEPLOYMENT: "production" };
+    const { handle } = api(env);
+    const request = new Request("http://127.0.0.1:43100/api/clients", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: TEST_ORIGIN },
+      body: JSON.stringify({ name: "Contract client" }),
+    });
+    expect(mayWriteOf(request, env)).toBe(false);
+    const response = await handle(request);
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("data_read_only");
+  });
+});
+
 describe("who came", () => {
   test("a request through the gateway without a role gets nothing", async () => {
     const { handle } = api(hostedEnvironment({ writer: true }));

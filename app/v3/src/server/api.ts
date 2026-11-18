@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type Stored, StoreError, type TimeStore } from "../data/store.ts";
+import { readOnly, type Stored, StoreError, type TimeStore } from "../data/store.ts";
 import { isAdmin, mayUseEntry, type Viewer } from "../domain/access.ts";
 import { localDay } from "../domain/calendar.ts";
 import { type Client, client } from "../domain/client.ts";
@@ -310,7 +310,17 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     });
   }
 
-  async function route(req: Request, url: URL, viewer: Viewer, entry: AccessEntry) {
+  /**
+   * One request. `port` is the store as this request may use it: read-only
+   * when the request may not write, so a change is refused at the port too.
+   */
+  async function route(
+    req: Request,
+    url: URL,
+    viewer: Viewer,
+    entry: AccessEntry,
+    port: TimeStore,
+  ) {
     const { pathname, searchParams } = url;
     const method = req.method;
     const now = clock();
@@ -322,7 +332,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         organization: options.organization,
         language,
         policy,
-        available: await store.available(),
+        available: await port.available(),
         // The one writer rule for this request (Module Standard): the page and
         // its tools offer writing only while it is true.
         mayWrite: viewer.role !== null && options.mayWrite(req),
@@ -334,19 +344,19 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     if (pathname === "/api/events" && method === "GET") return events(req);
 
     if (pathname === "/api/catalog" && method === "GET") {
-      const [clients, projects] = await Promise.all([store.listClients(), store.listProjects()]);
+      const [clients, projects] = await Promise.all([port.listClients(), port.listProjects()]);
       return json({ clients, projects });
     }
 
     if (pathname === "/api/people" && method === "GET") {
       if (viewer.role === "user")
         return json({ people: [{ person: viewer.person.subject, name: viewer.person.username }] });
-      return json({ people: knownPeople(await store.listEntries()) });
+      return json({ people: knownPeople(await port.listEntries()) });
     }
 
     if (pathname === "/api/entries" && method === "GET") {
       const pending = new Set(
-        (await store.pending())
+        (await port.pending())
           .filter((record) => record.collection === "entries")
           .map((record) => record.id),
       );
@@ -372,7 +382,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,
       };
-      return json(await store.saveEntry(input.id, value, null, actor), 201);
+      return json(await port.saveEntry(input.id, value, null, actor), 201);
     }
 
     if (pathname === "/api/timer/stop" && method === "POST") {
@@ -388,7 +398,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,
       };
-      return json(await store.saveEntry(input.id, value, found.revision, actor));
+      return json(await port.saveEntry(input.id, value, found.revision, actor));
     }
 
     if (pathname === "/api/entries" && method === "POST") {
@@ -413,7 +423,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,
       };
-      return json(await store.saveEntry(input.id, value, null, actor), 201);
+      return json(await port.saveEntry(input.id, value, null, actor), 201);
     }
 
     const entryMatch = /^\/api\/entries\/([^/]+)$/.exec(pathname);
@@ -422,7 +432,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       const found = await requireEntry(viewer, id);
       if (method === "DELETE") {
         const input = await body(req, deleteInput);
-        await store.deleteEntry(id, input.revision, actor);
+        await port.deleteEntry(id, input.revision, actor);
         return json({ ok: true });
       }
       const input = await body(req, editInput);
@@ -441,7 +451,7 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         updatedAt: new Date(now).toISOString(),
         updatedBy: actor,
       };
-      return json(await store.saveEntry(id, value, input.revision, actor));
+      return json(await port.saveEntry(id, value, input.revision, actor));
     }
 
     if (pathname === "/api/report" && method === "GET") {
@@ -454,8 +464,8 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       if (person) scope.set("person", person);
       const [rows, clients, projects] = await Promise.all([
         visibleEntries(viewer, scope, now),
-        store.listClients(),
-        store.listProjects(),
+        port.listClients(),
+        port.listProjects(),
       ]);
       const today = localDay(now, policy.timeZone);
       const people = person
@@ -483,8 +493,8 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       const range = rangeFromQuery(scope, language);
       const [rows, clients, projects] = await Promise.all([
         visibleEntries(viewer, scope, now),
-        store.listClients(),
-        store.listProjects(),
+        port.listClients(),
+        port.listProjects(),
       ]);
       const ordered = [...rows].sort(
         (a, b) => a.value.startedAt.localeCompare(b.value.startedAt) || a.id.localeCompare(b.id),
@@ -519,15 +529,15 @@ export function createApi(store: TimeStore, options: ApiOptions) {
 
     if (pathname === "/api/clients" && method === "POST") {
       const input = await body(req, newClientInput);
-      const taken = new Set((await store.listClients()).map((row) => row.id));
+      const taken = new Set((await port.listClients()).map((row) => row.id));
       const value: Client = { name: input.name, archived: false };
-      return json(await store.saveClient(slugFor(input.name, taken), value, null, actor), 201);
+      return json(await port.saveClient(slugFor(input.name, taken), value, null, actor), 201);
     }
     const clientMatch = /^\/api\/clients\/([^/]+)$/.exec(pathname);
     if (clientMatch && method === "PUT") {
       const input = await body(req, saveClientInput);
       return json(
-        await store.saveClient(
+        await port.saveClient(
           decodeURIComponent(clientMatch[1] ?? ""),
           input.value,
           input.baseRevision,
@@ -537,15 +547,15 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     }
     if (pathname === "/api/projects" && method === "POST") {
       const input = await body(req, newProjectInput);
-      const taken = new Set((await store.listProjects()).map((row) => row.id));
+      const taken = new Set((await port.listProjects()).map((row) => row.id));
       const value: Project = { ...input, archived: false };
-      return json(await store.saveProject(slugFor(input.name, taken), value, null, actor), 201);
+      return json(await port.saveProject(slugFor(input.name, taken), value, null, actor), 201);
     }
     const projectMatch = /^\/api\/projects\/([^/]+)$/.exec(pathname);
     if (projectMatch && method === "PUT") {
       const input = await body(req, saveProjectInput);
       return json(
-        await store.saveProject(
+        await port.saveProject(
           decodeURIComponent(projectMatch[1] ?? ""),
           input.value,
           input.baseRevision,
@@ -554,11 +564,11 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       );
     }
 
-    if (pathname === "/api/check" && method === "GET") return json(await store.check());
-    if (pathname === "/api/draft" && method === "GET") return json(await store.draft());
+    if (pathname === "/api/check" && method === "GET") return json(await port.check());
+    if (pathname === "/api/draft" && method === "GET") return json(await port.draft());
     if (pathname === "/api/draft/publish" && method === "POST") {
       const input = await body(req, publishInput);
-      await store.publish({
+      await port.publish({
         expectedRevision: input.expectedRevision,
         ...(actor ? { actor } : {}),
         ...(input.summary ? { summary: input.summary } : {}),
@@ -567,16 +577,16 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     }
     if (pathname === "/api/draft/finish-send" && method === "POST") {
       const input = await body(req, z.strictObject({ expectedHead: z.string().min(1) }));
-      await store.finishSend(input.expectedHead);
+      await port.finishSend(input.expectedHead);
       return json({ ok: true });
     }
     if (pathname === "/api/draft/discard" && method === "POST") {
       const input = await body(req, discardInput);
-      await store.discard(input.scope, input.expectedRevision);
+      await port.discard(input.scope, input.expectedRevision);
       return json({ ok: true });
     }
     if (pathname === "/api/draft/pull" && method === "POST") {
-      await store.pull();
+      await port.pull();
       return json({ ok: true });
     }
     return refusal("not_found", `${method} ${pathname} is not part of the API.`, 404);
@@ -589,13 +599,14 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     if (refused) return refused;
     // One writer: a copy that may not write refuses every change before it
     // reaches the store, so no draft, publish or pull starts there either.
-    if (WRITE_METHODS.has(req.method) && !options.mayWrite(req))
+    const mayWrite = options.mayWrite(req);
+    if (WRITE_METHODS.has(req.method) && !mayWrite)
       return refusal("data_read_only", t.errors.data_read_only ?? "", 409);
     try {
       // Read for every request and never cached: after another account signs
       // in, the next request names the new person.
       const { viewer, entry } = options.viewer(req);
-      return await route(req, url, viewer, entry);
+      return await route(req, url, viewer, entry, mayWrite ? store : readOnly(store));
     } catch (error) {
       return errorResponse(error, language);
     }

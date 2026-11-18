@@ -18,9 +18,13 @@ Standard `MS-19`), on the stack profile `app-data@2026.12`.
   host only `LAZURIO_RUNTIME_DATA_WRITER=true` writes, and any other value
   refuses every change with `data_read_only` before it reaches the store.
   Without the variable the App follows the module kit (the Module Standard
-  keeps that case open). A copy that may not write never fetches, pulls or
-  publishes, not even on a read; `/api/session` tells the page `mayWrite` for
-  the request.
+  keeps that case open), except that a runtime stating
+  `LAZURIO_RUNTIME_DEPLOYMENT=production` never writes without `true`, from
+  any entry. A copy that may not write changes no record and never fetches,
+  pulls or publishes, not even on a read; it reads its draft status from the
+  checkout. Every request that may not write gets the store as a read-only
+  view (`readOnly` of the storage port), so a change is refused at the port
+  too. `/api/session` tells the page `mayWrite` for the request.
 - Deep health: `/healthz` answers 503 until the data checkout is open, then
   200.
 - Contract tests (`tests/application-contract.test.ts`) over the module kit's
