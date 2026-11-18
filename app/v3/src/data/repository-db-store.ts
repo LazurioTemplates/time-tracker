@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import {
   createSyncHost,
@@ -94,7 +95,47 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     ...(options.expect ? { expect: options.expect } : {}),
   });
   const writes = options.writes ?? true;
-  if (writes && (options.intervalMs ?? 30_000) > 0) host.start();
+  const interval = options.intervalMs ?? 30_000;
+  if (writes && interval > 0) host.start();
+
+  /**
+   * A copy that may not write runs no sync host, so it watches its checkout
+   * instead: when the host changes the replica (the data become available, a
+   * new commit, a fetched newer state of colleagues, a changed draft or a
+   * changed record of it), an open page hears it and reloads its records and
+   * its draft. Only local state is read, with no fetch, pull or write: whether
+   * the checkout opens, its sync status as Git knows it locally, the commit,
+   * the draft's paths and their contents.
+   */
+  const watchers = new Set<(event: StoreEvent) => void>();
+  let seen: string | undefined;
+  async function watch(): Promise<void> {
+    const next = await host
+      .read((db) => {
+        const local = db.status();
+        return [
+          `${local.state} ahead ${local.ahead} behind ${local.behind} conflict ${local.conflict}`,
+          local.head ?? "",
+          ...local.dirtyPaths.map((path) => draftPrint(mountRoot, path)),
+        ].join("\n");
+      })
+      .catch(
+        (error: unknown) => `unavailable ${error instanceof RepositoryDbError ? error.code : ""}`,
+      );
+    const changed = seen !== undefined && seen !== next;
+    seen = next;
+    if (!changed) return;
+    for (const listener of watchers) {
+      listener({ type: "records-changed" });
+      listener({ type: "draft-changed" });
+    }
+  }
+  let watching: ReturnType<typeof setInterval> | undefined;
+  if (!writes && interval > 0) {
+    void watch();
+    watching = setInterval(() => void watch(), interval);
+    (watching as { unref?: () => void }).unref?.();
+  }
 
   /**
    * The status the draft card and the pending records come from. A copy that
@@ -334,16 +375,36 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       await engine(() => host.run("pull", (db) => db.pull()));
     },
     subscribe(listener: (event: StoreEvent) => void) {
-      return host.subscribe((event) => {
+      watchers.add(listener);
+      const stop = host.subscribe((event) => {
         if (event.type === "remote-pulled") listener({ type: "records-changed" });
         listener({ type: "draft-changed" });
       });
+      return () => {
+        watchers.delete(listener);
+        stop();
+      };
     },
     close() {
       host.stop();
+      if (watching) clearInterval(watching);
     },
   };
   return writes ? store : readOnly(store);
+}
+
+/**
+ * One path of the draft as the watch of a read-only copy compares it: its
+ * contents' hash, read as the engine reads a record (inside the checkout, no
+ * link followed), or that it cannot be read.
+ */
+function draftPrint(mountRoot: string, path: string): string {
+  try {
+    const text = readDataFile(mountRoot, path);
+    return `${path}:${text === null ? "gone" : createHash("sha256").update(text).digest("hex")}`;
+  } catch {
+    return `${path}:unreadable`;
+  }
 }
 
 /** Engine errors keep their code, so the UI words them as the engine documents. */

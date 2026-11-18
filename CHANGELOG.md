@@ -22,7 +22,8 @@ Standard `MS-19`), on the stack profile `app-data@2026.12`.
   `LAZURIO_RUNTIME_DEPLOYMENT=production` never writes without `true`, from
   any entry. A copy that may not write changes no record and never fetches,
   pulls or publishes, not even on a read; it reads its draft status from the
-  checkout. Every request that may not write gets the store as a read-only
+  checkout, and watches the checkout so an open page hears when the host
+  updates the replica. Every request that may not write gets the store as a read-only
   view (`readOnly` of the storage port), so a change is refused at the port
   too. `/api/session` tells the page `mayWrite` for the request.
 - Deep health: `/healthz` answers 503 until the data checkout is open, then
