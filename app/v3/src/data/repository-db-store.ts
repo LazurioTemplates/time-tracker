@@ -94,7 +94,42 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     ...(options.expect ? { expect: options.expect } : {}),
   });
   const writes = options.writes ?? true;
-  if (writes && (options.intervalMs ?? 30_000) > 0) host.start();
+  const interval = options.intervalMs ?? 30_000;
+  if (writes && interval > 0) host.start();
+
+  /**
+   * A copy that may not write runs no sync host, so it watches its checkout
+   * instead: when the host updates the replica (a new commit, a changed
+   * draft), an open page hears it. Only local Git state is read, with no
+   * fetch, pull or write.
+   */
+  const watchers = new Set<(event: StoreEvent) => void>();
+  let seen: string | null | undefined;
+  let lastHead: string | null | undefined;
+  async function watch(): Promise<void> {
+    const next = await host
+      .read((db) => {
+        const local = db.status();
+        return { head: local.head, state: `${local.head}\n${local.dirtyPaths.join("\n")}` };
+      })
+      .catch(() => null);
+    if (!next) return;
+    const changed = seen !== undefined && seen !== next.state;
+    const moved = lastHead !== undefined && lastHead !== next.head;
+    seen = next.state;
+    lastHead = next.head;
+    if (!changed) return;
+    for (const listener of watchers) {
+      if (moved) listener({ type: "records-changed" });
+      listener({ type: "draft-changed" });
+    }
+  }
+  let watching: ReturnType<typeof setInterval> | undefined;
+  if (!writes && interval > 0) {
+    void watch();
+    watching = setInterval(() => void watch(), interval);
+    (watching as { unref?: () => void }).unref?.();
+  }
 
   /**
    * The status the draft card and the pending records come from. A copy that
@@ -334,13 +369,19 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       await engine(() => host.run("pull", (db) => db.pull()));
     },
     subscribe(listener: (event: StoreEvent) => void) {
-      return host.subscribe((event) => {
+      watchers.add(listener);
+      const stop = host.subscribe((event) => {
         if (event.type === "remote-pulled") listener({ type: "records-changed" });
         listener({ type: "draft-changed" });
       });
+      return () => {
+        watchers.delete(listener);
+        stop();
+      };
     },
     close() {
       host.stop();
+      if (watching) clearInterval(watching);
     },
   };
   return writes ? store : readOnly(store);
