@@ -9,8 +9,10 @@ import { errorText, useApp } from "../context.ts";
 
 /** Projects and clients: everyone reads them, the application admin keeps them. */
 export function ProjectsPage() {
-  const { session, catalog, changed, t, language } = useApp();
+  const { session, canWrite, catalog, changed, t, language } = useApp();
   const admin = session.viewer.role === "admin";
+  // Changes are offered only to an Application Admin of a copy that may write.
+  const editable = admin && canWrite;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [project, setProject] = useState({ name: "", client: "", billable: true });
@@ -94,7 +96,7 @@ export function ProjectsPage() {
               <th scope="col">{t.projects.client}</th>
               <th scope="col">{t.projects.billable}</th>
               <th scope="col">{t.projects.state}</th>
-              {admin ? (
+              {editable ? (
                 <th scope="col" className="ds-table__num">
                   {t.projects.actions}
                 </th>
@@ -114,7 +116,7 @@ export function ProjectsPage() {
                 </td>
                 <td>{row.value.billable ? t.yes : t.no}</td>
                 <td>{state(row.value.archived)}</td>
-                {admin
+                {editable
                   ? actions(
                       row.value.archived,
                       () => rename(row, (value) => api.saveProject(row.id, value, row.revision)),
@@ -133,7 +135,7 @@ export function ProjectsPage() {
           </tbody>
         </Table>
       )}
-      {admin ? (
+      {editable ? (
         <form className="ds-card tt-form" onSubmit={addProject}>
           <h2 className="ds-type-title">{t.projects.newProject}</h2>
           <div className="tt-row tt-row--wide">
@@ -181,7 +183,7 @@ export function ProjectsPage() {
               {t.projects.count}
             </th>
             <th scope="col">{t.projects.state}</th>
-            {admin ? (
+            {editable ? (
               <th scope="col" className="ds-table__num">
                 {t.projects.actions}
               </th>
@@ -198,7 +200,7 @@ export function ProjectsPage() {
                 {catalog.projects.filter((item) => item.value.client === row.id).length}
               </td>
               <td>{state(row.value.archived)}</td>
-              {admin
+              {editable
                 ? actions(
                     row.value.archived,
                     () => rename(row, (value) => api.saveClient(row.id, value, row.revision)),
@@ -216,7 +218,7 @@ export function ProjectsPage() {
           ))}
         </tbody>
       </Table>
-      {admin ? (
+      {editable ? (
         <form className="ds-card tt-form" onSubmit={addClient}>
           <h2 className="ds-type-title">{t.projects.newClient}</h2>
           <TextField

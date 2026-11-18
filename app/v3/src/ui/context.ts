@@ -5,6 +5,8 @@ import type { formats } from "./format.ts";
 
 export interface AppState {
   session: Session;
+  /** Whether the page offers changes: the server's writer rule for this person. */
+  canWrite: boolean;
   catalog: Catalog;
   people: KnownPerson[];
   /** The server's clock, ticking every second. */

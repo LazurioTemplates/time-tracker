@@ -25,6 +25,7 @@ function setup(now: () => number = () => NOW) {
       viewer: viewers.get(request.headers.get("x-test-viewer") ?? "") ?? nobody,
       entry: "app",
     }),
+    mayWrite: () => true,
     policy: POLICY,
     organization: "Example",
     language: "cs",
@@ -281,6 +282,7 @@ describe("requests", () => {
     const api = createApi(store, {
       allowedOrigins: new Set([ORIGIN]),
       viewer: () => ({ viewer: admin, entry: "app" }),
+      mayWrite: () => true,
       policy: POLICY,
       organization: "Example",
       language: "cs",

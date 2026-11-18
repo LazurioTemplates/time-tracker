@@ -12,7 +12,7 @@ import { instance, policy } from "../instance/settings.ts";
 import type { Language } from "../language/messages.ts";
 import { createApi } from "./api.ts";
 import { clientDirectory, createStaticHandler } from "./static.ts";
-import { type Entry, LISTENER, viewerOf } from "./viewer.ts";
+import { type Entry, LISTENER, mayWriteOf, viewerOf } from "./viewer.ts";
 
 export const HEALTH_PATH = "/healthz";
 
@@ -23,6 +23,8 @@ export interface ServeOptions {
    * person; the App itself always reads `appAccess`.
    */
   viewer?: (request: Request) => { viewer: Viewer; entry: Entry };
+  /** Only the fictional demo, whose data live in memory, writes without the rule. */
+  mayWrite?: (request: Request) => boolean;
   /** The demo may show the other language; the App speaks the instance's. */
   language?: Language;
 }
@@ -51,6 +53,7 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
   const api = createApi(store, {
     allowedOrigins: origins,
     viewer: options.viewer ?? viewerOf,
+    mayWrite: options.mayWrite ?? ((request) => mayWriteOf(request)),
     policy,
     organization: instance.organization,
     language: options.language ?? instance.language,
@@ -66,13 +69,17 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
 
   const production = process.env.NODE_ENV === "production";
   const serveClient = production ? createStaticHandler(clientDirectory()) : null;
-  const handle = withHealth(async (req: Request) => {
-    const url = new URL(req.url);
-    if (url.pathname.startsWith("/api/")) return api(req);
-    if (serveClient && (req.method === "GET" || req.method === "HEAD"))
-      return serveClient(url.pathname);
-    return new Response("Not found", { status: 404 });
-  }, HEALTH_PATH);
+  const handle = withHealth(
+    async (req: Request) => {
+      const url = new URL(req.url);
+      if (url.pathname.startsWith("/api/")) return api(req);
+      if (serveClient && (req.method === "GET" || req.method === "HEAD"))
+        return serveClient(url.pathname);
+      return new Response("Not found", { status: 404 });
+    },
+    HEALTH_PATH,
+    async () => (await store.available()).ok,
+  );
   const guarded = (req: Request) =>
     hostAllowed(req) ? handle(req) : new Response("Forbidden host", { status: 403 });
 

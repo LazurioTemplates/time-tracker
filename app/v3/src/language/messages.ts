@@ -31,6 +31,11 @@ const cs = {
   },
   role: { admin: "Správce aplikace", user: "Uživatel aplikace" },
   account: { noUsername: "Bez uživatelského jména", inside: "Zevnitř Prostředí" },
+  readOnly: {
+    notice:
+      "Tato kopie Evidence času je teď jen ke čtení: časy, projekty ani koncept tu změnit nejde.",
+    idle: "Teď neběží žádný časovač.",
+  },
   blocked: {
     loadFailed: "Evidenci času se nepodařilo načíst",
     retry: "Zkusit znovu",
@@ -271,6 +276,7 @@ const cs = {
     mount_unavailable: "Data zatím nejsou k dispozici.",
     boundary_violation: "Složka db/ patří jinému datovému repozitáři, než jaký Evidence času čeká.",
     origin_refused: "Změnu lze poslat jen z Evidence času.",
+    data_read_only: "Tato kopie Evidence času teď data nemění, jen je čte.",
     unexpected: "Požadavek se nepodařilo dokončit. Zkuste to znovu.",
   } as Record<string, string>,
   /** What the server answers. */
@@ -384,6 +390,11 @@ const en: Messages = {
   },
   role: { admin: "Application admin", user: "Application user" },
   account: { noUsername: "No username", inside: "From inside the Environment" },
+  readOnly: {
+    notice:
+      "This copy of Time Tracker is read-only now: times, projects and the draft cannot be changed here.",
+    idle: "No timer is running.",
+  },
   blocked: {
     loadFailed: "Time Tracker could not load",
     retry: "Try again",
@@ -619,6 +630,7 @@ const en: Messages = {
     boundary_violation:
       "The db/ folder belongs to another data repository than Time Tracker expects.",
     origin_refused: "Changes are accepted only from Time Tracker.",
+    data_read_only: "This copy of Time Tracker does not change data now; it only reads them.",
     unexpected: "The request could not finish. Try again.",
   },
   server: {

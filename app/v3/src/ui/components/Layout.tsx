@@ -10,7 +10,7 @@ import { href, type Route } from "../routes.ts";
  * On a phone the side becomes a bar above the page.
  */
 export function Layout({ route, children }: { route: Route; children: ReactNode }) {
-  const { session, version, t } = useApp();
+  const { session, canWrite, version, t } = useApp();
   const admin = session.viewer.role === "admin";
   const [pending, setPending] = useState<number | null>(null);
 
@@ -69,6 +69,11 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
           </div>
         </div>
         <main className="tt-main" id="main-content" tabIndex={-1}>
+          {canWrite || session.viewer.role === null ? null : (
+            <p className="ds-type-body-sm tt-read-only" role="status">
+              {t.readOnly.notice}
+            </p>
+          )}
           {children}
         </main>
       </div>

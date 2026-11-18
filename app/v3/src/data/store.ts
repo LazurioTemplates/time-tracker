@@ -120,3 +120,48 @@ export class StoreError extends Error {
     this.issues = issues;
   }
 }
+
+/** The operations of the port that only read; every other one changes data. */
+type Reads =
+  | "available"
+  | "listClients"
+  | "listProjects"
+  | "listEntries"
+  | "getEntry"
+  | "check"
+  | "pending"
+  | "draft"
+  | "subscribe"
+  | "close";
+
+/**
+ * Every operation that changes data, publishes or pulls. A new operation of
+ * the port that is not a read must be named here, or this does not compile.
+ */
+export const CHANGES: Readonly<Record<Exclude<keyof TimeStore, Reads>, true>> = {
+  saveClient: true,
+  saveProject: true,
+  saveEntry: true,
+  deleteEntry: true,
+  publish: true,
+  finishSend: true,
+  discard: true,
+  pull: true,
+};
+
+/**
+ * The same store for a caller that may not write (the one writer rule of the
+ * Module Standard): every change, publish and pull is refused with
+ * `data_read_only` before it reaches the data; reads pass through.
+ */
+export function readOnly(store: TimeStore): TimeStore {
+  const refuse = async () => {
+    throw new StoreError("data_read_only", "This copy of Time Tracker does not change data now.");
+  };
+  return new Proxy(store, {
+    get(target, key, receiver) {
+      if (typeof key === "string" && Object.hasOwn(CHANGES, key)) return refuse;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+}

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { TimeStore } from "../src/data/store.ts";
+import { type CHANGES, readOnly, type TimeStore } from "../src/data/store.ts";
 import { ALEX, JAMIE, NEW_ID, newEntry, sampleData } from "./support/seed.ts";
 
 /**
@@ -36,6 +36,35 @@ export function storeContract(
       }
       throw new Error("expected a refusal");
     };
+
+    test("a read-only view refuses every change and changes nothing", async () => {
+      const view = readOnly(store);
+      const before = {
+        clients: await store.listClients(),
+        projects: await store.listProjects(),
+        entries: await store.listEntries(),
+        pending: await store.pending(),
+      };
+      const attempts: Record<keyof typeof CHANGES, () => Promise<unknown>> = {
+        saveClient: () => view.saveClient("novy", { name: "Nový" } as never, null, ALEX),
+        saveProject: () => view.saveProject("novy", {} as never, null, ALEX),
+        saveEntry: () => view.saveEntry(NEW_ID, newEntry(), null, ALEX),
+        deleteEntry: () => view.deleteEntry(NEW_ID, "r", ALEX),
+        publish: () => view.publish({ expectedRevision: "r" }),
+        finishSend: () => view.finishSend("h"),
+        discard: () => view.discard({ kind: "draft" }, "r"),
+        pull: () => view.pull(),
+      };
+      for (const attempt of Object.values(attempts))
+        expect(await refusal(attempt)).toBe("data_read_only");
+      expect(await view.listEntries()).toEqual(before.entries);
+      expect({
+        clients: await store.listClients(),
+        projects: await store.listProjects(),
+        entries: await store.listEntries(),
+        pending: await store.pending(),
+      }).toEqual(before);
+    });
 
     test("reads clients and projects by name and entries newest first", async () => {
       expect(await store.available()).toEqual({ ok: true });

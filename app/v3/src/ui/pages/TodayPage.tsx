@@ -12,7 +12,8 @@ import { stopwatch } from "../format.ts";
 
 /** Today: the person's timer, time written by hand and this week's entries. */
 export function TodayPage() {
-  const { session, catalog, now, today, version, changed, edit, fmt, t, language } = useApp();
+  const { session, canWrite, catalog, now, today, version, changed, edit, fmt, t, language } =
+    useApp();
   const policy = session.policy;
   const self = session.viewer.person;
   const names = useNames();
@@ -100,17 +101,21 @@ export function TodayPage() {
                 <p className="ds-type-meta">
                   {t.today.since(fmt.time(running.value.startedAt), policy.timerLimitHours)}
                 </p>
-                <Button
-                  variant="primary"
-                  block
-                  icon="check"
-                  busy={busy}
-                  locale={language}
-                  onClick={() => void run(() => api.stop(running.id, running.revision))}
-                >
-                  {t.today.stop}
-                </Button>
+                {canWrite ? (
+                  <Button
+                    variant="primary"
+                    block
+                    icon="check"
+                    busy={busy}
+                    locale={language}
+                    onClick={() => void run(() => api.stop(running.id, running.revision))}
+                  >
+                    {t.today.stop}
+                  </Button>
+                ) : null}
               </>
+            ) : !canWrite ? (
+              <p className="ds-type-body-sm">{t.readOnly.idle}</p>
             ) : (
               <form className="tt-form" onSubmit={start}>
                 <h2 className="ds-type-title">{t.today.question}</h2>
@@ -149,7 +154,7 @@ export function TodayPage() {
             <Stat label={t.today.weekMetric} value={fmt.hours(weekMs)} />
           </div>
         </div>
-        <ManualEntry defaultProject={defaultProject} />
+        {canWrite ? <ManualEntry defaultProject={defaultProject} /> : null}
       </div>
       <h2 className="ds-type-title tt-section">{self ? t.today.yourWeek : t.today.teamWeek}</h2>
       {entries === null ? (

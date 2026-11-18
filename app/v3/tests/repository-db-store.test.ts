@@ -1,8 +1,11 @@
 import { describe, expect, setDefaultTimeout, test } from "bun:test";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { gatewayRequest, TEST_ORIGIN } from "@lazurio/module-kit/tools/testing";
 import { toStableYaml } from "@lazurio/repository-db";
 import { createRepositoryDbStore } from "../src/data/repository-db-store.ts";
+import { createApi } from "../src/server/api.ts";
+import { copyWrites } from "../src/server/viewer.ts";
 import { storeContract } from "./store-contract.ts";
 import {
   colleagueClone,
@@ -17,11 +20,12 @@ import { NEW_ID, NOW, newEntry, POLICY } from "./support/seed.ts";
 // bun's default of 5 s per test, so they get a minute.
 setDefaultTimeout(60_000);
 
-const open = (fixture: FixtureRepo, remote = fixture.origin) =>
+const open = (fixture: FixtureRepo, remote = fixture.origin, writes = true) =>
   createRepositoryDbStore({
     mountRoot: fixture.mountRoot,
     expect: { remote, branch: "v3", within: fixture.moduleRoot },
     intervalMs: 0,
+    writes,
     policy: POLICY,
     now: () => NOW,
   });
@@ -128,6 +132,98 @@ describe("repository-db store", () => {
       expect(await store.listEntries()).toEqual([]);
       expect(await store.listProjects()).toEqual([]);
       expect(await store.check()).toEqual([]);
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("a copy that may not write never fetches or pulls, also through read requests", async () => {
+    const fixture = createFixtureRepo({ sample: true });
+    const store = open(fixture, fixture.origin, false);
+    try {
+      const colleague = colleagueClone(fixture);
+      const file = join(colleague, "data/projects/novy-web.yaml");
+      writeFileSync(file, readFileSync(file, "utf8").replace("name: Nový web", "name: Web bistra"));
+      git(colleague, ["commit", "--quiet", "--all", "--message", "Rename the project"]);
+      git(colleague, ["push", "--quiet"]);
+      const head = git(fixture.mountRoot, ["rev-parse", "HEAD"]);
+      const tracked = git(fixture.mountRoot, ["rev-parse", "origin/v3"]);
+      const handle = createApi(store, {
+        allowedOrigins: new Set([TEST_ORIGIN]),
+        viewer: () => ({ viewer: { role: "admin", person: null }, entry: "app" }),
+        mayWrite: () => false,
+        policy: POLICY,
+        organization: "Example",
+        language: "en",
+        now: () => NOW,
+      });
+      for (const path of [
+        "/api/session",
+        "/api/draft",
+        "/api/check",
+        "/api/catalog",
+        "/api/entries",
+      ])
+        expect((await handle(gatewayRequest(path, { caller: { role: "admin" } }))).status).toBe(
+          200,
+        );
+      await store.pending();
+      expect(git(fixture.mountRoot, ["rev-parse", "HEAD"])).toBe(head);
+      expect(git(fixture.mountRoot, ["rev-parse", "origin/v3"])).toBe(tracked);
+      expect((await store.listProjects()).find((row) => row.id === "novy-web")?.value.name).toBe(
+        "Nový web",
+      );
+      await expect(store.pull()).rejects.toMatchObject({ code: "data_read_only" });
+      const pull = await handle(
+        gatewayRequest("/api/draft/pull", {
+          caller: { role: "admin" },
+          origin: TEST_ORIGIN,
+          body: {},
+        }),
+      );
+      expect(pull.status).toBe(409);
+      expect(git(fixture.mountRoot, ["rev-parse", "origin/v3"])).toBe(tracked);
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("a read-only replica shows its draft and pending records without the network", async () => {
+    const fixture = createFixtureRepo({ sample: true });
+    const writer = open(fixture);
+    await writer.saveEntry(NEW_ID, newEntry(), null);
+    writer.close();
+    // The origin is gone: a fetch would fail, so a status needing one shows it.
+    rmSync(fixture.originPath, { recursive: true, force: true });
+    const store = open(fixture, fixture.origin, false);
+    try {
+      expect((await store.available()).ok).toBe(true);
+      expect(await store.pending()).toEqual([{ collection: "entries", id: NEW_ID }]);
+      const card = await store.draft();
+      expect(card.unavailableReason).toBeUndefined();
+      expect(card.status?.dirtyPaths).toEqual([`data/entries/${NEW_ID}.yaml`]);
+      expect(card.status?.state).not.toBe("not_checked");
+      expect(card.records).toHaveLength(1);
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("a copy that may not write changes no record, as main.ts opens it in production", async () => {
+    const fixture = createFixtureRepo({ sample: true });
+    const writes = copyWrites({ LAZURIO_RUNTIME_DEPLOYMENT: "production" });
+    expect(writes).toBe(false);
+    const store = open(fixture, fixture.origin, writes);
+    try {
+      await expect(store.saveEntry(NEW_ID, newEntry(), null)).rejects.toMatchObject({
+        code: "data_read_only",
+      });
+      await expect(store.deleteEntry("x", "r")).rejects.toMatchObject({ code: "data_read_only" });
+      expect(existsSync(join(fixture.mountRoot, `data/entries/${NEW_ID}.yaml`))).toBe(false);
+      expect(git(fixture.mountRoot, ["status", "--porcelain"])).toBe("");
     } finally {
       store.close();
       fixture.cleanup();

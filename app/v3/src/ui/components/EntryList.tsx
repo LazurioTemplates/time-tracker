@@ -16,7 +16,7 @@ export function EntryList({
   onEdit: (entry: StoredEntry) => void;
   empty: string;
 }) {
-  const { session, now, fmt, t } = useApp();
+  const { session, canWrite, now, fmt, t } = useApp();
   const names = useNames();
   const policy = session.policy;
   if (entries.length === 0) return <EmptyState title={empty} icon="clock" headingLevel={3} />;
@@ -80,18 +80,20 @@ export function EntryList({
                   <span className="ds-numeric tt-entry__duration">
                     {fmt.hours(durationMs(value, now, policy))}
                   </span>
-                  <Button
-                    variant="quiet"
-                    size="sm"
-                    icon="edit-pencil"
-                    onClick={() => onEdit(row)}
-                    aria-label={t.entry.editLabel(
-                      names.project(value.project),
-                      fmt.time(value.startedAt),
-                    )}
-                  >
-                    {t.entry.edit}
-                  </Button>
+                  {canWrite ? (
+                    <Button
+                      variant="quiet"
+                      size="sm"
+                      icon="edit-pencil"
+                      onClick={() => onEdit(row)}
+                      aria-label={t.entry.editLabel(
+                        names.project(value.project),
+                        fmt.time(value.startedAt),
+                      )}
+                    >
+                      {t.entry.edit}
+                    </Button>
+                  ) : null}
                 </li>
               );
             })}
