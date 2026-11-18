@@ -9,6 +9,7 @@ import {
   type Session,
   type StoredEntry,
   subscribe,
+  webmcpApi,
 } from "./api.ts";
 import { EntryDialog } from "./components/EntryDialog.tsx";
 import { Layout } from "./components/Layout.tsx";
@@ -124,7 +125,7 @@ export function App() {
     return installTools(
       timeTrackerTools({
         t: messages[toolLanguage],
-        api,
+        api: webmcpApi,
         self,
         edit: setEditing,
         changed,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withChannel } from "../data/origin.ts";
 import { readOnly, type Stored, StoreError, type TimeStore } from "../data/store.ts";
 import { isAdmin, mayUseEntry, type Viewer } from "../domain/access.ts";
 import { localDay } from "../domain/calendar.ts";
@@ -190,6 +191,9 @@ function rangeFromQuery(params: URLSearchParams, language: Language): Partial<Ra
   if (from && to && to < from) throw new StoreError("bad_request", t.rangeOrder);
   return { ...(from ? { from } : {}), ...(to ? { to } : {}) };
 }
+
+/** The header a page tool sends so its changes are recorded as WebMCP. */
+export const CHANNEL_HEADER = "x-lazurio-channel";
 
 export function createApi(store: TimeStore, options: ApiOptions) {
   const { policy, language } = options;
@@ -606,7 +610,13 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       // Read for every request and never cached: after another account signs
       // in, the next request names the new person.
       const { viewer, entry } = options.viewer(req);
-      return await route(req, url, viewer, entry, mayWrite ? store : readOnly(store));
+      // The channel of the change (Module Standard, One data port): a page
+      // tool says so in its header, anything else is the interface. The
+      // page's statement is the App's, not a proof.
+      const channel = req.headers.get(CHANNEL_HEADER) === "webmcp" ? "webmcp" : "ui";
+      return await withChannel(channel, () =>
+        route(req, url, viewer, entry, mayWrite ? store : readOnly(store)),
+      );
     } catch (error) {
       return errorResponse(error, language);
     }

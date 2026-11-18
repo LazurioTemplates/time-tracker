@@ -13,6 +13,14 @@ Standard `MS-19`), on the stack profile `app-data@2026.12`.
 
 ### For whoever runs it
 
+- Every change records who made it and by which channel (Module Standard, One
+  data port): the person's subject and `ui` or `webmcp` (the page's tools,
+  which say so in the `x-lazurio-channel` header). A draft records them
+  through repository-db's `recordOrigin` (an agent's channel as `agent`), a
+  publication as `Repository-Db-Actor` and `Repository-Db-Source:
+  time-tracker-v3/<channel>`; a change nobody stated the channel of is
+  `unknown`, source `time-tracker-v3`. The origin is a hint: a failure to
+  record it never fails a saved write.
 - `@lazurio/module-kit` v0.4.0 (profile release `2026.12`).
 - One writer rule through the module kit's `dataWriter`: on an Application
   host only `LAZURIO_RUNTIME_DATA_WRITER=true` writes, and any other value
