@@ -38,6 +38,8 @@ export interface ApiOptions {
   allowedOrigins: ReadonlySet<string>;
   /** Who sends a request; `viewerOf` of `viewer.ts` in the App. */
   viewer: (request: Request) => { viewer: Viewer; entry: AccessEntry };
+  /** Whether a request may change data now; `mayWriteOf` of `viewer.ts` in the App. */
+  mayWrite: (request: Request) => boolean;
   policy: Policy;
   /** The Organization's name for the header. */
   organization: string;
@@ -581,6 +583,10 @@ export function createApi(store: TimeStore, options: ApiOptions) {
     const url = new URL(req.url);
     const refused = writeRefusal(req, options.allowedOrigins, language);
     if (refused) return refused;
+    // One writer: a copy that may not write refuses every change before it
+    // reaches the store, so no draft, publish or pull starts there either.
+    if (WRITE_METHODS.has(req.method) && !options.mayWrite(req))
+      return refusal("data_read_only", t.errors.data_read_only ?? "", 409);
     try {
       // Read for every request and never cached: after another account signs
       // in, the next request names the new person.

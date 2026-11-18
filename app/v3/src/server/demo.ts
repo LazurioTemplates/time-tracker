@@ -35,5 +35,7 @@ const data = demoData(Date.now(), policy, language);
 await serve(() => createMemoryStore(data, { policy, language }), {
   label: `demo (${language}) as the fictional ${viewer.role} ${person.username}, example data in memory`,
   viewer: () => ({ viewer, entry: "app" }),
+  // The demo's data live only in memory, so its fictional visitor may write.
+  mayWrite: () => true,
   language,
 });

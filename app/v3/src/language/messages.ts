@@ -271,6 +271,7 @@ const cs = {
     mount_unavailable: "Data zatím nejsou k dispozici.",
     boundary_violation: "Složka db/ patří jinému datovému repozitáři, než jaký Evidence času čeká.",
     origin_refused: "Změnu lze poslat jen z Evidence času.",
+    data_read_only: "Tato kopie Evidence času teď data nemění, jen je čte.",
     unexpected: "Požadavek se nepodařilo dokončit. Zkuste to znovu.",
   } as Record<string, string>,
   /** What the server answers. */
@@ -619,6 +620,7 @@ const en: Messages = {
     boundary_violation:
       "The db/ folder belongs to another data repository than Time Tracker expects.",
     origin_refused: "Changes are accepted only from Time Tracker.",
+    data_read_only: "This copy of Time Tracker does not change data now; it only reads them.",
     unexpected: "The request could not finish. Try again.",
   },
   server: {
