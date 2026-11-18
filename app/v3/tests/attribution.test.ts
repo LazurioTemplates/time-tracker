@@ -15,7 +15,7 @@ setDefaultTimeout(60_000);
  * the person's subject and the channel it came by, in the draft and when it
  * is published.
  */
-function setup(subject: string) {
+function setup(subject: string | null) {
   const fixture = createFixtureRepo({ sample: true });
   const store = createRepositoryDbStore({
     mountRoot: fixture.mountRoot,
@@ -27,7 +27,10 @@ function setup(subject: string) {
   const handle = createApi(store, {
     allowedOrigins: new Set([TEST_ORIGIN]),
     viewer: () => ({
-      viewer: { role: "admin", person: { subject, username: "alexmorgan" } },
+      viewer: {
+        role: "admin",
+        person: subject === null ? null : { subject, username: "alexmorgan" },
+      },
       entry: "app",
     }),
     mayWrite: () => true,
@@ -53,7 +56,9 @@ describe("author and channel", () => {
   test("a change from the interface records the person and the channel ui", async () => {
     const { fixture, store, call, origins } = setup("subject-1");
     try {
-      expect((await call("/api/clients", { name: "Alfa" })).status).toBe(201);
+      expect(
+        (await call("/api/clients", { name: "Alfa" }, { [CHANNEL_HEADER]: "ui" })).status,
+      ).toBe(201);
       expect(await origins()).toEqual([
         expect.objectContaining({ kind: "app", actor: "subject-1", source: "time-tracker-v3/ui" }),
       ]);
@@ -84,11 +89,19 @@ describe("author and channel", () => {
   test("a publication records who published and by which channel", async () => {
     const { fixture, store, call } = setup("subject-2");
     try {
-      expect((await call("/api/clients", { name: "Gama" })).status).toBe(201);
+      expect(
+        (await call("/api/clients", { name: "Gama" }, { [CHANNEL_HEADER]: "ui" })).status,
+      ).toBe(201);
       const card = await store.draft();
-      expect((await call("/api/draft/publish", { expectedRevision: card.revision })).status).toBe(
-        200,
-      );
+      expect(
+        (
+          await call(
+            "/api/draft/publish",
+            { expectedRevision: card.revision },
+            { [CHANNEL_HEADER]: "ui" },
+          )
+        ).status,
+      ).toBe(200);
       const trailers = git(fixture.originPath, ["log", "-1", "--format=%(trailers:only)", "v3"]);
       expect(trailers).toContain("Repository-Db-Actor: subject-2");
       expect(trailers).toContain("Repository-Db-Source: time-tracker-v3/ui");
@@ -107,6 +120,40 @@ describe("author and channel", () => {
       });
       expect((await call("/api/clients", { name: "Delta" })).status).toBe(201);
       expect((await store.listClients()).some((row) => row.value.name === "Delta")).toBe(true);
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("an agent's direct request states cli and is recorded as an agent's", async () => {
+    const { fixture, store, call, origins } = setup("subject-4");
+    try {
+      // As the record-time skill sends it.
+      const response = await call("/api/clients", { name: "Epsilon" }, { [CHANNEL_HEADER]: "cli" });
+      expect(response.status).toBe(201);
+      expect(await origins()).toEqual([
+        expect.objectContaining({
+          kind: "agent",
+          actor: "subject-4",
+          source: "time-tracker-v3/cli",
+        }),
+      ]);
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("a request that states no channel is unknown, and a caller without a person gets none", async () => {
+    const { fixture, store, call, origins } = setup(null);
+    try {
+      expect((await call("/api/clients", { name: "Zeta" })).status).toBe(201);
+      const [origin] = await origins();
+      expect(origin).toEqual(
+        expect.objectContaining({ kind: "unknown", source: "time-tracker-v3" }),
+      );
+      expect(origin?.actor).toBeUndefined();
     } finally {
       store.close();
       fixture.cleanup();

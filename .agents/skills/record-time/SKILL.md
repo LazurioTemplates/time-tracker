@@ -59,6 +59,7 @@ For each confirmed entry:
 ```bash
 curl -sS -X POST "http://127.0.0.1:<port>/api/entries" \
   -H "content-type: application/json" -H "origin: http://127.0.0.1:<port>" \
+  -H "x-lazurio-channel: cli" \
   -d '{"id":"<new lowercase UUID>","person":"<subject>","project":"<project id>","day":"2026-11-05","from":"09:00","to":"12:00","note":"Home page design"}'
 ```
 

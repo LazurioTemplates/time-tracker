@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withChannel } from "../data/origin.ts";
+import { channelOf, withChannel } from "../data/origin.ts";
 import { readOnly, type Stored, StoreError, type TimeStore } from "../data/store.ts";
 import { isAdmin, mayUseEntry, type Viewer } from "../domain/access.ts";
 import { localDay } from "../domain/calendar.ts";
@@ -192,7 +192,7 @@ function rangeFromQuery(params: URLSearchParams, language: Language): Partial<Ra
   return { ...(from ? { from } : {}), ...(to ? { to } : {}) };
 }
 
-/** The header a page tool sends so its changes are recorded as WebMCP. */
+/** The header in which a caller states the channel of its changes (`ui`, `webmcp`, `cli`). */
 export const CHANNEL_HEADER = "x-lazurio-channel";
 
 export function createApi(store: TimeStore, options: ApiOptions) {
@@ -610,11 +610,11 @@ export function createApi(store: TimeStore, options: ApiOptions) {
       // Read for every request and never cached: after another account signs
       // in, the next request names the new person.
       const { viewer, entry } = options.viewer(req);
-      // The channel of the change (Module Standard, One data port): a page
-      // tool says so in its header, anything else is the interface. The
-      // page's statement is the App's, not a proof.
-      const channel = req.headers.get(CHANNEL_HEADER) === "webmcp" ? "webmcp" : "ui";
-      return await withChannel(channel, () =>
+      // The channel of the change (Module Standard, One data port), as the
+      // caller states it in its header: the interface, the page's tools or
+      // an agent's command line. A request that states none is unknown,
+      // never guessed. The statement is the caller's, not a proof.
+      return await withChannel(channelOf(req.headers.get(CHANNEL_HEADER)), () =>
         route(req, url, viewer, entry, mayWrite ? store : readOnly(store)),
       );
     } catch (error) {
