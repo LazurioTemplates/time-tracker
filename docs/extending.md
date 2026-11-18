@@ -118,9 +118,9 @@ design system by a relative path.
 
 ## Stack profile releases
 
-The template follows the stack profile `app-data@2026.11`
+The template follows the stack profile `app-data@2026.12`
 ([`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data),
-release 2026.11): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
+release 2026.12): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
 repository-db and module-kit (`app/v3/package.json`). A **stack profile
 release** moves those versions together, for example `app-data@2026.11` to
 `app-data@2027.05`: one template release that updates `packageManager`, the
@@ -129,11 +129,10 @@ reformats once. Organizations take it by merging its tag like any other
 release. Between profile releases only patch versions with a security fix
 change.
 
-One deviation from release 2026.11: the profile names `@lazurio/module-kit`
-v0.2.0, and Time Tracker depends on v0.3.0, the minor release that added
-`appAccess` (decision 0231), because deciding who may see and change which
-entries needs it. Everything else in module-kit is unchanged. The next profile
-release is expected to name v0.3.0 or later.
+Release 2026.12 names `@lazurio/module-kit` v0.4.0, which Time Tracker uses
+for `appAccess` (decision 0231), the one writer rule `dataWriter` and the
+contract-test helpers of `@lazurio/module-kit/tools/testing`; there is no
+deviation from the profile any more.
 
 Planned profile releases already known: Vite+ is reconsidered when it
 supports Bun as a runtime and its formatter reaches 1.0; Biome's YAML and
