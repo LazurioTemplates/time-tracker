@@ -30,6 +30,8 @@ export interface Session {
   language: Language;
   policy: Policy;
   available: { ok: true } | { ok: false; code: string; message: string };
+  /** Whether this copy lets the person change data now (the writer rule). */
+  mayWrite: boolean;
   now: number;
 }
 

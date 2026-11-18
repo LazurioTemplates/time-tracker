@@ -101,6 +101,7 @@ export function App() {
     const t = messages[session.language];
     return {
       session,
+      canWrite: session.mayWrite,
       catalog,
       people,
       now,
@@ -117,12 +118,20 @@ export function App() {
   // The main actions as WebMCP tools, in the App's language, once it is known.
   const toolLanguage = state ? state.language : null;
   const self = session?.viewer.person?.subject ?? null;
+  const canWrite = session?.mayWrite ?? false;
   useEffect(() => {
     if (!toolLanguage) return;
     return installTools(
-      timeTrackerTools({ t: messages[toolLanguage], api, self, edit: setEditing, changed }),
+      timeTrackerTools({
+        t: messages[toolLanguage],
+        api,
+        self,
+        edit: setEditing,
+        changed,
+        canWrite,
+      }),
     );
-  }, [toolLanguage, self, changed]);
+  }, [toolLanguage, self, changed, canWrite]);
 
   if (error)
     return (

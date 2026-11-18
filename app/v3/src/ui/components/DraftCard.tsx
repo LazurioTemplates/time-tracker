@@ -26,7 +26,7 @@ const TONE = {
 } as const;
 
 export function DraftCard() {
-  const { changed, t, language } = useApp();
+  const { canWrite, changed, t, language } = useApp();
   const [card, setCard] = useState<DraftPanelInput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,7 +105,7 @@ export function DraftCard() {
                     {t.draftCard.open}
                   </Button>
                 ) : null}
-                {record.revertSupported ? (
+                {canWrite && record.revertSupported ? (
                   <Button
                     variant="quiet"
                     size="sm"
@@ -154,7 +154,7 @@ export function DraftCard() {
             </Button>
           </>
         ) : (
-          actions.map((action) => (
+          (canWrite ? actions : []).map((action) => (
             <Button
               key={action.kind}
               // The one primary action is publishing; returning everything turns

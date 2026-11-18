@@ -106,6 +106,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   identity_unavailable: 403,
   forbidden: 403,
   origin_refused: 403,
+  data_read_only: 409,
   not_found: 404,
   invalid_record: 422,
   nonexistent_time: 422,
@@ -322,6 +323,9 @@ export function createApi(store: TimeStore, options: ApiOptions) {
         language,
         policy,
         available: await store.available(),
+        // The one writer rule for this request (Module Standard): the page and
+        // its tools offer writing only while it is true.
+        mayWrite: viewer.role !== null && options.mayWrite(req),
         now,
       });
     if (viewer.role === null)

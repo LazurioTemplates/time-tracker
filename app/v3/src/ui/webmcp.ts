@@ -53,6 +53,16 @@ async function answer(run: () => Promise<unknown>): Promise<unknown> {
   }
 }
 
+/** The tools that change data or prepare a change; a copy that may not write
+ * offers none of them. */
+export const WRITE_TOOLS: ReadonlySet<string> = new Set([
+  "start_timer",
+  "stop_timer",
+  "add_time_entry",
+  "update_time_entry",
+  "prepare_entry_correction",
+]);
+
 export function timeTrackerTools(options: {
   t: Messages;
   api: Api;
@@ -61,6 +71,10 @@ export function timeTrackerTools(options: {
   /** Opens the edit dialog of an entry. */
   edit: (entry: StoredEntry) => void;
   changed: () => Promise<void>;
+  /** Whether this copy lets the person change data now; without it only the
+   * reading tools are offered (Module Standard: a write is offered only while
+   * the App may write). */
+  canWrite: boolean;
 }): Tool[] {
   const { t, api, self, edit, changed } = options;
   const write = async <T>(run: () => Promise<T>) => {
@@ -68,7 +82,7 @@ export function timeTrackerTools(options: {
     await changed();
     return result;
   };
-  return [
+  const tools: Tool[] = [
     {
       name: "find_time_entries",
       description: t.tools.find_time_entries,
@@ -222,6 +236,7 @@ export function timeTrackerTools(options: {
         }),
     },
   ];
+  return options.canWrite ? tools : tools.filter((tool) => !WRITE_TOOLS.has(tool.name));
 }
 
 type ModelContext = {

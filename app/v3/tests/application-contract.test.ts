@@ -98,6 +98,36 @@ describe("the Application's writer rule", () => {
   });
 });
 
+describe("the page learns the writer rule from its session", () => {
+  const session = async (env: Env, role: "admin" | "user" | "environment") => {
+    const { handle } = api(env);
+    const response = await handle(gatewayRequest("/api/session", { caller: { role } }));
+    expect(response.status).toBe(200);
+    return (await response.json()).mayWrite as boolean;
+  };
+
+  for (const role of ["admin", "user"] as const) {
+    test(`an Application ${role} may write with the writer`, async () => {
+      expect(await session(hostedEnvironment({ writer: true }), role)).toBe(true);
+    });
+    test(`an Application ${role} may not write without it`, async () => {
+      expect(await session(hostedEnvironment({ writer: false }), role)).toBe(false);
+    });
+  }
+
+  test("without the variable, the Environment's own entry may write and the application may not", async () => {
+    const env = { ...hostedEnvironment(), LAZURIO_RUNTIME_DATA_WRITER: undefined };
+    expect(await session(env, "environment")).toBe(true);
+    expect(await session(env, "admin")).toBe(false);
+  });
+
+  test("a request without a role is never offered writing", async () => {
+    const { handle } = api(hostedEnvironment({ writer: true }));
+    const response = await handle(gatewayRequest("/api/session", { caller: { role: "none" } }));
+    expect((await response.json()).mayWrite).toBe(false);
+  });
+});
+
 describe("who came", () => {
   test("a request through the gateway without a role gets nothing", async () => {
     const { handle } = api(hostedEnvironment({ writer: true }));

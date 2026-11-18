@@ -25,7 +25,7 @@ await serve(
       expect: { ...dataRepository, within: moduleRoot },
       policy,
       language: instance.language,
-      ...(syncs ? {} : { intervalMs: 0 }),
+      sync: syncs,
     }),
   { label: "v3" },
 );

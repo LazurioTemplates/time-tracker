@@ -55,6 +55,9 @@ export interface RepositoryDbStoreOptions {
   expect?: { remote: string; branch: string; within?: string };
   /** Background fetch cadence; `0` runs no timer (tests). */
   intervalMs?: number;
+  /** False for a copy that may not write: it never fetches, pulls or
+   * publishes, neither on a timer nor on a read; the host keeps its replica. */
+  sync?: boolean;
   policy: Policy;
   /** The language of refusals, data checks and the review; `cs` by default. */
   language?: Language;
@@ -85,7 +88,14 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     intervalMs: options.intervalMs ?? 30_000,
     ...(options.expect ? { expect: options.expect } : {}),
   });
-  if ((options.intervalMs ?? 30_000) > 0) host.start();
+  const sync = options.sync ?? true;
+  if (sync && (options.intervalMs ?? 30_000) > 0) host.start();
+  // A copy that does not sync refuses every operation that would fetch, pull
+  // or publish, whoever asks; the API refuses them before already.
+  const syncs = () => {
+    if (!sync)
+      throw new StoreError("data_read_only", "This copy does not change, pull or publish data.");
+  };
 
   // Parsed records by path and revision: a record is parsed again only after
   // its bytes changed, so listing many entries stays cheap.
@@ -222,14 +232,14 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       ),
     async pending(): Promise<PendingRecord[]> {
       let status = host.status();
-      if (!status.sync) status = await host.refresh().catch(() => host.status());
+      if (!status.sync && sync) status = await host.refresh().catch(() => host.status());
       return (status.sync?.dirtyPaths ?? []).flatMap((path) => recordOfPath(path) ?? []);
     },
     async draft(): Promise<DraftCard> {
       // The host computes its status in the background; before the first
       // check (or without a timer) it is computed now.
       let status = host.status();
-      if (!status.sync) status = await host.refresh().catch(() => host.status());
+      if (!status.sync && sync) status = await host.refresh().catch(() => host.status());
       if (!status.available)
         return {
           status: null,
@@ -273,6 +283,7 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       );
     },
     async publish({ expectedRevision, actor, summary }) {
+      syncs();
       await engine(() =>
         host.run("publish", (db) =>
           db.publish({
@@ -285,12 +296,15 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       );
     },
     async finishSend(expectedHead) {
+      syncs();
       await engine(() => host.run("finish-send", (db) => db.finishSend({ expectedHead })));
     },
     async discard(scope: DiscardScope, expectedRevision) {
+      syncs();
       await engine(() => host.run("discard", (db) => db.discard({ scope, expectedRevision })));
     },
     async pull() {
+      syncs();
       await engine(() => host.run("pull", (db) => db.pull()));
     },
     subscribe(listener: (event: StoreEvent) => void) {

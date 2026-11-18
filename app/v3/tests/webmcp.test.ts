@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { messages } from "../src/language/messages.ts";
 import type { api } from "../src/ui/api.ts";
-import { timeTrackerTools } from "../src/ui/webmcp.ts";
+import { timeTrackerTools, WRITE_TOOLS } from "../src/ui/webmcp.ts";
 
 type Api = Parameters<typeof timeTrackerTools>[0]["api"];
 
@@ -51,6 +51,7 @@ describe("WebMCP tools", () => {
   test("name the App's main actions, verb first, with JSON Schema inputs, and publish nothing", () => {
     const { fake } = recording();
     const tools = timeTrackerTools({
+      canWrite: true,
       t: messages.cs,
       api: fake,
       self: "me",
@@ -75,6 +76,7 @@ describe("WebMCP tools", () => {
     }
     expect(tools.some((tool) => /publish|delete|remove/.test(tool.name))).toBe(false);
     const english = timeTrackerTools({
+      canWrite: true,
       t: messages.en,
       api: fake,
       self: "me",
@@ -84,11 +86,30 @@ describe("WebMCP tools", () => {
     expect(english[0]?.description).toBe(messages.en.tools.find_time_entries);
   });
 
+  test("offer only reading tools to a copy that may not write", () => {
+    const { fake } = recording();
+    const tools = timeTrackerTools({
+      canWrite: false,
+      t: messages.cs,
+      api: fake,
+      self: "me",
+      edit: () => {},
+      changed: async () => {},
+    });
+    expect(tools.map((tool) => tool.name)).toEqual([
+      "find_time_entries",
+      "list_projects",
+      "get_time_report",
+    ]);
+    expect(tools.some((tool) => WRITE_TOOLS.has(tool.name))).toBe(false);
+  });
+
   test("go through the same API calls as the buttons", async () => {
     const { calls, fake } = recording();
     let opened = "";
     let refreshed = 0;
     const tools = timeTrackerTools({
+      canWrite: true,
       t: messages.en,
       api: fake,
       self: "me",
