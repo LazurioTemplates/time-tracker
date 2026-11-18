@@ -67,17 +67,27 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: { method: string; body: unknown }): Promise<T> {
+/** Who sends a request: the interface (`ui`) or the page's tools (`webmcp`). */
+export type ClientChannel = "ui" | "webmcp";
+
+async function send<T>(
+  channel: ClientChannel,
+  path: string,
+  init?: { method: string; body: unknown },
+): Promise<T> {
+  // The page states its channel, so the server records the change as the
+  // interface's or the page tools'.
+  const said: Record<string, string> = { "x-lazurio-channel": channel };
   const response = await fetch(
     path,
     init
       ? {
           method: init.method,
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", ...said },
           body: JSON.stringify(init.body),
           cache: "no-store",
         }
-      : { headers: { accept: "application/json" }, cache: "no-store" },
+      : { headers: { accept: "application/json", ...said }, cache: "no-store" },
   );
   if (response.status === 401 || response.redirected)
     throw new ApiError("session_expired", "The Lazurio sign-in expired.", 401);
@@ -108,83 +118,94 @@ export interface EntryFilter {
   client?: string | null;
 }
 
-export const api = {
-  session: () => request<Session>("/api/session"),
-  catalog: () => request<Catalog>("/api/catalog"),
-  people: () => request<{ people: KnownPerson[] }>("/api/people"),
-  entries: (filter: EntryFilter) =>
-    request<{ now: number; entries: StoredEntry[] }>(`/api/entries${query({ ...filter })}`),
-  report: (period: Period, day: string, person: string | null) =>
-    request<Report>(`/api/report${query({ period, day, person })}`),
-  exportUrl: (kind: "entries" | "summary", filter: EntryFilter) =>
-    `/api/export${query({ kind, ...filter })}`,
-  start: (input: { id: string; project: string; note: string }) =>
-    request<Stored<Entry>>("/api/timer/start", { method: "POST", body: input }),
-  stop: (id: string, revision: string) =>
-    request<Stored<Entry>>("/api/timer/stop", { method: "POST", body: { id, revision } }),
-  addEntry: (input: {
-    id: string;
-    person?: string;
-    project: string;
-    day: string;
-    from: string;
-    to: string;
-    fromOccurrence?: Occurrence;
-    toOccurrence?: Occurrence;
-    note: string;
-  }) => request<Stored<Entry>>("/api/entries", { method: "POST", body: input }),
-  saveEntry: (
-    id: string,
-    input: {
-      revision: string;
+/** The API client for one channel. */
+function makeApi(channel: ClientChannel) {
+  const request = <T>(path: string, init?: { method: string; body: unknown }) =>
+    send<T>(channel, path, init);
+  return {
+    session: () => request<Session>("/api/session"),
+    catalog: () => request<Catalog>("/api/catalog"),
+    people: () => request<{ people: KnownPerson[] }>("/api/people"),
+    entries: (filter: EntryFilter) =>
+      request<{ now: number; entries: StoredEntry[] }>(`/api/entries${query({ ...filter })}`),
+    report: (period: Period, day: string, person: string | null) =>
+      request<Report>(`/api/report${query({ period, day, person })}`),
+    exportUrl: (kind: "entries" | "summary", filter: EntryFilter) =>
+      `/api/export${query({ kind, ...filter })}`,
+    start: (input: { id: string; project: string; note: string }) =>
+      request<Stored<Entry>>("/api/timer/start", { method: "POST", body: input }),
+    stop: (id: string, revision: string) =>
+      request<Stored<Entry>>("/api/timer/stop", { method: "POST", body: { id, revision } }),
+    addEntry: (input: {
+      id: string;
+      person?: string;
       project: string;
       day: string;
       from: string;
-      to: string | null;
+      to: string;
       fromOccurrence?: Occurrence;
       toOccurrence?: Occurrence;
       note: string;
-    },
-  ) =>
-    request<Stored<Entry>>(`/api/entries/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: input,
-    }),
-  deleteEntry: (id: string, revision: string) =>
-    request<{ ok: true }>(`/api/entries/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      body: { revision },
-    }),
-  addClient: (name: string) =>
-    request<Stored<Client>>("/api/clients", { method: "POST", body: { name } }),
-  saveClient: (id: string, value: Client, baseRevision: string) =>
-    request<Stored<Client>>(`/api/clients/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: { value, baseRevision },
-    }),
-  addProject: (input: { name: string; client: string | null; billable: boolean }) =>
-    request<Stored<Project>>("/api/projects", { method: "POST", body: input }),
-  saveProject: (id: string, value: Project, baseRevision: string) =>
-    request<Stored<Project>>(`/api/projects/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: { value, baseRevision },
-    }),
-  check: () => request<RuleIssue[]>("/api/check"),
-  draft: () => request<DraftPanelInput>("/api/draft"),
-  publish: (expectedRevision: string) =>
-    request<{ ok: true }>("/api/draft/publish", { method: "POST", body: { expectedRevision } }),
-  finishSend: (expectedHead: string) =>
-    request<{ ok: true }>("/api/draft/finish-send", { method: "POST", body: { expectedHead } }),
-  discard: (
-    scope: { kind: "draft" } | { kind: "record"; path: string },
-    expectedRevision: string,
-  ) =>
-    request<{ ok: true }>("/api/draft/discard", {
-      method: "POST",
-      body: { scope, expectedRevision },
-    }),
-  pull: () => request<{ ok: true }>("/api/draft/pull", { method: "POST", body: {} }),
-};
+    }) => request<Stored<Entry>>("/api/entries", { method: "POST", body: input }),
+    saveEntry: (
+      id: string,
+      input: {
+        revision: string;
+        project: string;
+        day: string;
+        from: string;
+        to: string | null;
+        fromOccurrence?: Occurrence;
+        toOccurrence?: Occurrence;
+        note: string;
+      },
+    ) =>
+      request<Stored<Entry>>(`/api/entries/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: input,
+      }),
+    deleteEntry: (id: string, revision: string) =>
+      request<{ ok: true }>(`/api/entries/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        body: { revision },
+      }),
+    addClient: (name: string) =>
+      request<Stored<Client>>("/api/clients", { method: "POST", body: { name } }),
+    saveClient: (id: string, value: Client, baseRevision: string) =>
+      request<Stored<Client>>(`/api/clients/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: { value, baseRevision },
+      }),
+    addProject: (input: { name: string; client: string | null; billable: boolean }) =>
+      request<Stored<Project>>("/api/projects", { method: "POST", body: input }),
+    saveProject: (id: string, value: Project, baseRevision: string) =>
+      request<Stored<Project>>(`/api/projects/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: { value, baseRevision },
+      }),
+    check: () => request<RuleIssue[]>("/api/check"),
+    draft: () => request<DraftPanelInput>("/api/draft"),
+    publish: (expectedRevision: string) =>
+      request<{ ok: true }>("/api/draft/publish", { method: "POST", body: { expectedRevision } }),
+    finishSend: (expectedHead: string) =>
+      request<{ ok: true }>("/api/draft/finish-send", { method: "POST", body: { expectedHead } }),
+    discard: (
+      scope: { kind: "draft" } | { kind: "record"; path: string },
+      expectedRevision: string,
+    ) =>
+      request<{ ok: true }>("/api/draft/discard", {
+        method: "POST",
+        body: { scope, expectedRevision },
+      }),
+    pull: () => request<{ ok: true }>("/api/draft/pull", { method: "POST", body: {} }),
+  };
+}
+
+/** The interface's client: its changes are recorded with the channel `ui`. */
+export const api = makeApi("ui");
+
+/** The page tools' client: its changes are recorded with the channel `webmcp`. */
+export const webmcpApi = makeApi("webmcp");
 
 /** Server events: records came in or the draft moved. Returns the unsubscribe function. */
 export function subscribe(onChange: () => void): () => void {

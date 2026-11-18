@@ -26,6 +26,7 @@ import {
   type RuleIssue,
 } from "../domain/rules.ts";
 import { type Language, messages } from "../language/messages.ts";
+import { originOf } from "./origin.ts";
 import {
   byName,
   byStartDescending,
@@ -230,6 +231,8 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     refusal: (value: Values[C], previous: Values[C] | null, data: Snapshot) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
     const value = parseOf(collection, id, input);
+    // The origin of the request, taken before the write waits in the queue.
+    const origin = originOf(SOURCE);
     return engine(() =>
       host.run(`save-${collection}`, (db) => {
         const data = snapshot(db);
@@ -245,11 +248,7 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
             parser: recordSchema(collection),
           })
           .put(id, value, {}, { baseRevision });
-        db.recordOrigin([pathOf(db, collection, id)], {
-          kind: "app",
-          source: SOURCE,
-          ...(actor ? { actor } : {}),
-        });
+        hint(db, [pathOf(db, collection, id)], origin, actor);
         return { id, value, revision };
       }),
     );
@@ -282,20 +281,18 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       save("entries", id, value, base, actor, (next, previous, data) =>
         entryRefusal(id, next, previous, rulesInput(data), now(), policy, language),
       ),
-    deleteEntry: (id, baseRevision, actor) =>
-      engine(() =>
+    deleteEntry: (id, baseRevision, actor) => {
+      const origin = originOf(SOURCE);
+      return engine(() =>
         host.run("delete-entry", (db) => {
           const removed = db
             .collection("entries", { schemaVersion: collections.entries.schemaVersion })
             .remove(id, { baseRevision });
           if (!removed) throw new StoreError("record_changed", `entries/${id} no longer exists.`);
-          db.recordOrigin([pathOf(db, "entries", id)], {
-            kind: "app",
-            source: SOURCE,
-            ...(actor ? { actor } : {}),
-          });
+          hint(db, [pathOf(db, "entries", id)], origin, actor);
         }),
-      ),
+      );
+    },
     check: () =>
       engine(() =>
         host.read((db) => {
@@ -354,11 +351,12 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       );
     },
     async publish({ expectedRevision, actor, summary }) {
+      const origin = originOf(SOURCE);
       await engine(() =>
         host.run("publish", (db) =>
           db.publish({
             expectedRevision,
-            source: SOURCE,
+            source: origin.source,
             ...(actor ? { actor } : {}),
             ...(summary ? { summary } : {}),
           }),
@@ -404,6 +402,24 @@ function draftPrint(mountRoot: string, path: string): string {
     return `${path}:${text === null ? "gone" : createHash("sha256").update(text).digest("hex")}`;
   } catch {
     return `${path}:unreadable`;
+  }
+}
+
+/**
+ * Records where a draft change came from: a hint that informs and never
+ * gates, so a failure to record it never fails the saved write. It runs in
+ * the same queued operation as the write, so a later writer's hint follows.
+ */
+function hint(
+  db: RepositoryDb,
+  paths: string[],
+  origin: { kind: "app" | "agent" | "unknown"; source: string },
+  actor: string | null | undefined,
+) {
+  try {
+    db.recordOrigin(paths, { ...origin, ...(actor ? { actor } : {}) });
+  } catch {
+    // The record is saved; only its origin hint is missing.
   }
 }
 
