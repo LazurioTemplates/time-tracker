@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.1 — 2026-11-19
+
 ### For people
 
 - A link to another page opens it at its top, not at the height the previous
