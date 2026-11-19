@@ -20,13 +20,21 @@ import { EntriesPage } from "./pages/EntriesPage.tsx";
 import { ProjectsPage } from "./pages/ProjectsPage.tsx";
 import { ReportPage } from "./pages/ReportPage.tsx";
 import { TodayPage } from "./pages/TodayPage.tsx";
-import { parseRoute, type Route } from "./routes.ts";
+import { parseRoute, type Route, samePage } from "./routes.ts";
 import { installTools, timeTrackerTools } from "./webmcp.ts";
 
 function useHashRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(window.location.hash));
   useEffect(() => {
-    const update = () => setRoute(parseRoute(window.location.hash));
+    let shown = window.location.hash;
+    const update = () => {
+      const next = window.location.hash;
+      // A link to another page opens it at its top, not at the height the
+      // previous page was scrolled to; another period of the report keeps it.
+      if (!samePage(shown, next)) window.scrollTo(0, 0);
+      shown = next;
+      setRoute(parseRoute(next));
+    };
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
   }, []);
