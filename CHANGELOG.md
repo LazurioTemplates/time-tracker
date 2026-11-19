@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### For people
+
+- A link to another page opens it at its top, not at the height the previous
+  page was scrolled to. Another period or day of the report keeps the place.
+
 ## 0.2.0 — 2026-11-18
 
 Ready as an Application of an Organization (Lazurio decision 0249, Module

@@ -32,6 +32,16 @@ export function parseRoute(hash: string): Route {
   }
 }
 
+/**
+ * Whether two hashes address the same page: the path decides, the query (the
+ * report's period and day) does not. A new page starts at its top; another
+ * period of the same report keeps the reader's place.
+ */
+export function samePage(a: string, b: string): boolean {
+  const path = (hash: string) => hash.replace(/^#/, "").split("?")[0] || "/";
+  return path(a) === path(b);
+}
+
 export function href(route: Route): string {
   switch (route.page) {
     case "today":

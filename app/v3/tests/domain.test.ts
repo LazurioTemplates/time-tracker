@@ -16,7 +16,7 @@ import { changeWallTime, resolveInterval } from "../src/domain/interval.ts";
 import { knownPeople, missingDays, rangeOf, shiftRange, summarize } from "../src/domain/report.ts";
 import { checkRules } from "../src/domain/rules.ts";
 import { durationMs, effective, hoursText, needsEndCheck } from "../src/domain/time.ts";
-import { parseRoute } from "../src/ui/routes.ts";
+import { parseRoute, samePage } from "../src/ui/routes.ts";
 import { ALEX, JAMIE, NOW, newEntry, POLICY, ROBIN, sampleData } from "./support/seed.ts";
 
 const TZ = POLICY.timeZone;
@@ -274,6 +274,13 @@ describe("routes", () => {
       day: null,
     });
     expect(parseRoute("#/nic")).toEqual({ page: "not-found" });
+  });
+
+  test("another period stays on the same page, a link to another page does not", () => {
+    expect(samePage("#/report?period=week", "#/report?period=month&day=2026-11-01")).toBe(true);
+    expect(samePage("", "#/")).toBe(true);
+    expect(samePage("#/entries", "#/report?period=week")).toBe(false);
+    expect(samePage("#/", "#/projects")).toBe(false);
   });
 });
 
