@@ -41,9 +41,9 @@ export function copyWrites(env: Record<string, string | undefined> = process.env
  * Whether this request may change the App's data now: the copy writes, and
  * the module kit's `dataWriter` lets this entry write. What a development
  * version does without the variable is the standard's open point; the App
- * follows the module kit there. module-kit 0.4.0's `dataWriter` alone lets a
- * local or Environment entry write also in a runtime stating production,
- * which the standard forbids, so `copyWrites` comes first.
+ * follows the module kit there. Since module-kit 0.4.1 `dataWriter` itself
+ * never writes in a runtime stating production without the variable;
+ * `copyWrites` states the same rule in the App and comes first.
  */
 export function mayWriteOf(
   request: Request,

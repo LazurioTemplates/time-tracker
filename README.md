@@ -45,7 +45,7 @@ are English. Screenshots: [`docs/screenshots/cs/`](docs/screenshots/cs/) and
 | | |
 | --- | --- |
 | App generation | `app/v3`: data in [repository-db](https://github.com/Lazurio/repository-db) |
-| Stack profile | [`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data), release 2026.12 (`app-data@2026.12`): Bun 1.4.4, TypeScript 7.0.2, Vite 8.3.5, React 19.3.1, Biome 2.6.4, Zod 4.6.7, `@lazurio/repository-db` v3.2.6, `@lazurio/module-kit` v0.4.0; exact versions only |
+| Stack profile | [`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data), release 2027.01 (`app-data@2027.01`): Bun 1.4.4, TypeScript 7.0.2, Vite 8.3.5, React 19.3.1, Biome 2.6.4, Zod 4.6.7, `@lazurio/repository-db` v3.2.6, `@lazurio/module-kit` v0.5.0; exact versions only |
 | Born from | `lazurio module create --stack vite-react --data` of LazurioPlatform `main` |
 | Data | the Organization's own repository `time-tracker-data`, branch `v3`, checked out as `db/` |
 | Shape of the data | Zod schemas in `app/v3/src/domain/`; the JSON Schemas of the data repository are generated from them |
