@@ -131,10 +131,10 @@ change.
 
 Release 2027.01 names `@lazurio/module-kit` v0.5.0, which Time Tracker uses
 for `appAccess` (decision 0231), the one writer rule `dataWriter` and the
-contract-test helpers of `@lazurio/module-kit/tools/testing`. v0.5.0 also keeps
-a production application from offering an agent a publication until the
-Owner decides how the App knows the person's "Publikuj"; Time Tracker offers
-none. There is no deviation from the profile.
+contract-test helpers of `@lazurio/module-kit/tools/testing`. v0.5.0 still
+offers an agent no publication tool in a production application, which a later
+kit release lifts; Time Tracker offers none. There is no deviation from the
+profile.
 
 Planned profile releases already known: Vite+ is reconsidered when it
 supports Bun as a runtime and its formatter reaches 1.0; Biome's YAML and
