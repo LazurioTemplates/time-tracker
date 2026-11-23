@@ -52,7 +52,7 @@ describe("the template contract", () => {
     ])
       expect(existsSync(join(root, path))).toBe(true);
     for (const path of ["README.md", "docs/extending.md"])
-      expect(read(path)).toContain("app-data@2027.01");
+      expect(read(path)).toContain("app-data@2027.02");
     expect(read("CHANGELOG.md")).toContain("## 0.1.0");
   });
 
