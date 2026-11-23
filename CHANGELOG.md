@@ -11,6 +11,16 @@
   later kit release lifts that. This template offers none.
   Nothing in an adopted copy's own files changes; take it by merging the tag.
 
+### For agents
+
+- The tools for agents are defined once on the server
+  (`app/v3/src/server/agent-tools.ts`) and offered on `/mcp` of the
+  Application and to the page (`/api/agent-tools`, registered by
+  `@lazurio/module-kit/webmcp`), with the same names as before. Each calls
+  the App's own API, so the role, the writer rule and the revision decide as
+  for a click; a copy that may not write lists only the reading tools.
+  `prepare_entry_correction` stays a view tool of the page.
+
 ## 0.2.1 — 2026-11-19
 
 ### For people

@@ -1,5 +1,5 @@
 import { Button, EmptyState } from "design-system/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { localDay } from "../domain/calendar.ts";
 import { type Language, messages } from "../language/messages.ts";
 import {
@@ -21,7 +21,7 @@ import { ProjectsPage } from "./pages/ProjectsPage.tsx";
 import { ReportPage } from "./pages/ReportPage.tsx";
 import { TodayPage } from "./pages/TodayPage.tsx";
 import { parseRoute, type Route, samePage } from "./routes.ts";
-import { installTools, timeTrackerTools } from "./webmcp.ts";
+import { type InstalledTools, installTools, viewTools } from "./webmcp.ts";
 
 function useHashRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(window.location.hash));
@@ -124,23 +124,28 @@ export function App() {
     };
   }, [session, catalog, people, now, version, changed]);
 
-  // The main actions as WebMCP tools, in the App's language, once it is known.
+  // The tools for agents: the server's, as it lists them for the person now
+  // (role and writer mode), and the page's view tool, in the App's language.
   const toolLanguage = state ? state.language : null;
   const self = session?.viewer.person?.subject ?? null;
   const canWrite = session?.mayWrite ?? false;
+  const installed = useRef<InstalledTools | null>(null);
   useEffect(() => {
     if (!toolLanguage) return;
-    return installTools(
-      timeTrackerTools({
-        t: messages[toolLanguage],
-        api: webmcpApi,
-        self,
-        edit: setEditing,
-        changed,
-        canWrite,
-      }),
+    const tools = installTools(
+      viewTools({ t: messages[toolLanguage], entries: webmcpApi.entries, edit: setEditing }),
     );
-  }, [toolLanguage, self, changed, canWrite]);
+    installed.current = tools;
+    return () => {
+      installed.current = null;
+      tools.remove();
+    };
+  }, [toolLanguage]);
+  // After a sign-in or a change of the writer mode the server lists other tools.
+  const access = `${self ?? ""}:${canWrite}`;
+  useEffect(() => {
+    if (access) installed.current?.refresh();
+  }, [access]);
 
   if (error)
     return (

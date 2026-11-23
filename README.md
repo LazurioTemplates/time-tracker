@@ -57,9 +57,10 @@ app/v3/src/
   domain/      Zod schemas and pure logic: time, calendar, rules, reports, CSV, access
   data/        the storage port (store.ts), its repository-db and memory implementations,
                the review adapter
-  server/      Bun.serve: the HTTP API over the port, appAccess, health, the client
+  server/      Bun.serve: the HTTP API over the port, the tools for agents (/mcp and the page),
+               appAccess, health, the client
   ui/          React over the HTTP API with the design system's components
-               (design-system/react), the App's own layout (styles.css), WebMCP tools
+               (design-system/react), the App's own layout (styles.css), the page's tools
   language/    every text for people, Czech and English
   instance/    the Organization's own settings: name, language, time zone, timer limit
   cli/         schema export and the rules check of the data
@@ -106,10 +107,11 @@ repository. The screenshots come from it.
 `AGENTS.md` holds the rules. The procedures live as skills in
 `.agents/skills/` (and the same files in `.claude/skills/`): writing a
 person's time from their description, preparing a timesheet for invoicing and
-finding the missing days. In the Environment browser the App also offers its
-main actions as WebMCP tools (`find_time_entries`, `start_timer`,
-`add_time_entry`, `get_time_report` and more); none of them publishes or
-deletes.
+finding the missing days. The App offers its main actions as tools for agents
+(`find_time_entries`, `start_timer`, `add_time_entry`, `get_time_report` and
+more), defined once on its server: on `/mcp` of the Application and as WebMCP
+tools in the Environment browser. They list only what the person's role and
+the writer mode allow, and none of them publishes or deletes.
 
 ## Adopt it
 

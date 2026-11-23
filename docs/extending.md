@@ -24,8 +24,11 @@ with a security fix.
   `moveFile`), implemented in every store and covered by
   `tests/store-contract.ts`. The server and the UI call only the port.
 - **A new page or action** is a React component in `app/v3/src/ui/` calling
-  only the HTTP API (`app/v3/src/ui/api.ts`), with its WebMCP tool in
-  `app/v3/src/ui/webmcp.ts` when people and agents do it often.
+  only the HTTP API (`app/v3/src/ui/api.ts`), with its tool for agents in
+  `app/v3/src/server/agent-tools.ts` when people and agents do it often. A
+  tool is defined once on the server, calls the same API and is offered on
+  `/mcp` and to the page; only a tool that just opens a view lives in
+  `app/v3/src/ui/webmcp.ts`.
 - **Words.** Every text people read is a message in
   `app/v3/src/language/messages.ts`, written in Czech and in English; the tests
   refuse one without the other.

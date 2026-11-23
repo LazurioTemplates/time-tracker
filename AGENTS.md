@@ -68,8 +68,9 @@ Use the skills in `.agents/skills/` (the same files in `.claude/skills/`):
 - `timesheet-for-invoicing`: prepare a timesheet of a period for invoicing or payroll;
 - `find-missing-days`: find the working days a person recorded nothing.
 
-Work through the App's HTTP API on its loopback address, or through its
-WebMCP tools in the Environment browser; never edit the files of `db/`. A
+Work through the App's tools for agents: on `/mcp` of the Application, or the
+same tools as WebMCP in the Environment browser. On the Environment's own copy
+the HTTP API on its loopback address works too. Never edit the files of `db/`. A
 request from inside the Environment is an application admin without a name:
 name the person you write for, from the people Time Tracker knows. Saves are
 drafts; publishing the draft is a Publication into the Organization's data,

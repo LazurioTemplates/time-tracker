@@ -16,9 +16,9 @@ a project or a time, and you never publish.
 - The App's address for an agent is its loopback listener: `http://127.0.0.1:<port>`,
   the `port` of the lease `main` in `lazurio.module.json`. Start it with
   `lazurio module start <Organization>/time-tracker --json` when it does not
-  run. In the Environment browser you may use its WebMCP tools instead
+  run. In the Environment browser you may use its tools for agents instead
   (`agent-browser webmcp list`): `list_projects`, `find_time_entries`,
-  `add_time_entry`.
+  `add_time_entry`. The Application offers the same tools on `/mcp`.
 - `GET /api/session`: `viewer.role` is `admin` and `viewer.person` is `null`
   from the loopback address. You act as the Environment, so you must name the
   person every entry is for.
