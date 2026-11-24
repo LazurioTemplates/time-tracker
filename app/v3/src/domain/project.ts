@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { slugId, writeRevision } from "./common.ts";
+import { instant, slugId, subject, writeRevision } from "./common.ts";
 
 export const PROJECT_SCHEMA_VERSION = "time-tracker.project.v1";
 
@@ -12,6 +12,10 @@ export const project = z.strictObject({
   billable: z.boolean(),
   /** An archived project stays in the history and takes no new time. */
   archived: z.boolean(),
+  /** When it was saved last; the storage port stores it with every save. */
+  updatedAt: instant.optional(),
+  /** Who saved it last: a subject, or `null` from inside the Environment. */
+  updatedBy: subject.nullable().optional(),
   /** The write revision the storage port stores with every save. */
   revision: writeRevision,
 });

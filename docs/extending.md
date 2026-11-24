@@ -34,9 +34,13 @@ with a security fix.
   count writes: after A → B → A a content fingerprint repeats (Lazurio Module
   Standard, "One data port"). `tests/store-contract.ts` checks A → B → A for
   every store. repository-db 3.4.0 treats `record.revision` as audit metadata
-  with `updatedAt` and `updatedBy`: a record without `updatedAt` (clients,
-  projects) merges no concurrent edit once it carries a revision, so give a
-  collection that must merge concurrent edits an `updatedAt` its saves set.
+  with `updatedAt` and `updatedBy`, and merges two concurrent edits of
+  different fields only when the record has an `updatedAt` each save sets:
+  without it a record with a revision stops as a conflict on
+  `/record/revision`. Entries set theirs in the server; the port stamps a
+  client's or project's (`audited` in `records.ts`). A new collection takes
+  optional `updatedAt` and `updatedBy` in its Zod schema and goes through
+  `audited` too.
 - **A new page or action** is a React component in `app/v3/src/ui/` calling
   only the HTTP API (`app/v3/src/ui/api.ts`), with its tool for agents in
   `app/v3/src/server/agent-tools.ts` when people and agents do it often. A

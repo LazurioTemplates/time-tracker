@@ -23,12 +23,12 @@
   a pull request of its own and merge it: the data repository's validator
   refuses a record with `revision` until its schemas allow it, so a publish
   would fail with `validation_failed`.
-  With v3.4.0 two published edits of different fields of one entry still
-  merge (the later `updatedAt` decides the bookkeeping, the merged record
-  gets the revision `merge-<sha256>`). Clients and projects have no
-  `updatedAt`, so two concurrent edits of one client or project now stop as
-  a conflict on `/record/revision` for a person to resolve, where they merged
-  before.
+  Every save of a client or project also stores `updatedAt` and `updatedBy`
+  (who saved it, `null` from inside the Environment), as entries already do.
+  With v3.4.0 two concurrent edits of different fields of one client,
+  project or entry therefore still merge, as before: the later `updatedAt`
+  keeps its bookkeeping and the merged record gets the revision
+  `merge-<sha256>`. The same field changed on both sides stays a conflict.
 
 ### For agents
 

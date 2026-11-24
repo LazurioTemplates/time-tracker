@@ -28,6 +28,7 @@ import {
 import { type Language, messages } from "../language/messages.ts";
 import { originOf } from "./origin.ts";
 import {
+  audited,
   byName,
   byStartDescending,
   parseDocument,
@@ -88,7 +89,8 @@ interface Snapshot {
  * (`run`) and the engine's collections with the base revision, so the App
  * never runs Git on its data and two writes never interleave.
  *
- * Every save stores a new random write revision in `record.revision`; the
+ * Every save stores a new random write revision in `record.revision` (and a
+ * client's or project's `updatedAt` and `updatedBy`, see `audited`); the
  * revision the port hands out and compares is the hash of the record's file,
  * which covers that write revision and the content (Lazurio Module Standard,
  * "One data port"). The values it hands out leave `record.revision` out.
@@ -240,7 +242,7 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     actor: string | null | undefined,
     refusal: (value: Values[C], previous: Values[C] | null, data: Snapshot) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
-    const value = unstamped(parseOf(collection, id, input));
+    const value = audited(collection, unstamped(parseOf(collection, id, input)), now(), actor);
     // The origin of the request, taken before the write waits in the queue.
     const origin = originOf(SOURCE);
     return engine(() =>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { type CHANGES, readOnly, type TimeStore } from "../src/data/store.ts";
-import { ALEX, JAMIE, NEW_ID, newEntry, sampleData } from "./support/seed.ts";
+import { ALEX, JAMIE, NEW_ID, NOW, newEntry, sampleData } from "./support/seed.ts";
 
 /**
  * The shared test suite of the storage port. Every implementation runs it:
@@ -237,6 +237,15 @@ export function storeContract(
         "example-garden",
         { name: "Example Garden", archived: false },
         null,
+        ALEX,
+      );
+      // The port stamps who saved a client or project, and when.
+      expect(client.value).toMatchObject({
+        updatedAt: new Date(NOW).toISOString(),
+        updatedBy: ALEX,
+      });
+      expect((await store.listClients()).find((row) => row.id === client.id)?.value).toEqual(
+        client.value,
       );
       const project = await store.saveProject(
         "zahrada-web",

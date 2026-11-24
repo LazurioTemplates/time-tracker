@@ -13,6 +13,7 @@ import {
 } from "../domain/rules.ts";
 import type { Language } from "../language/messages.ts";
 import {
+  audited,
   byName,
   byStartDescending,
   parseOf,
@@ -116,9 +117,10 @@ export function createMemoryStore(
     id: string,
     input: Values[C],
     base: Revision | null,
+    actor: string | null | undefined,
     refusal: (value: Values[C], previous: Values[C] | null) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
-    const value = unstamped(parseOf(collection, id, input));
+    const value = audited(collection, unstamped(parseOf(collection, id, input)), now(), actor);
     const key: Key = `${collection}/${id}`;
     assertBase(key, base);
     const previous = draft.get(key) as Values[C] | undefined;
@@ -137,16 +139,16 @@ export function createMemoryStore(
   return {
     available: async () => ({ ok: true }),
     listClients: async () => snapshot().clients,
-    saveClient: (id, value, base) => save("clients", id, value, base, () => null),
+    saveClient: (id, value, base, actor) => save("clients", id, value, base, actor, () => null),
     listProjects: async () => snapshot().projects,
-    saveProject: (id, value, base) =>
-      save("projects", id, value, base, (next, previous) =>
+    saveProject: (id, value, base, actor) =>
+      save("projects", id, value, base, actor, (next, previous) =>
         projectRefusal(next, previous, snapshot(), language),
       ),
     listEntries: async () => snapshot().entries,
     getEntry: async (id) => snapshot().entries.find((row) => row.id === id) ?? null,
-    saveEntry: (id, value, base) =>
-      save("entries", id, value, base, (next, previous) =>
+    saveEntry: (id, value, base, actor) =>
+      save("entries", id, value, base, actor, (next, previous) =>
         entryRefusal(id, next, previous, snapshot(), now(), policy, language),
       ),
     async deleteEntry(id, base) {

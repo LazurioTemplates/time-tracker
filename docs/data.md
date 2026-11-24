@@ -20,8 +20,8 @@ without it is valid.
 
 | Collection | `schemaVersion` | id | record |
 | --- | --- | --- | --- |
-| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived` |
-| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived` |
+| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived`, `updatedAt` and `updatedBy` (optional, set by every save) |
+| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived`, `updatedAt` and `updatedBy` (optional, set by every save) |
 | `entries` | `time-tracker.entry.v1` | a lowercase UUID | `person` (Lazurio subject), `personName` (username, or `null`), `project`, `startedAt`, `endedAt` (`null` while running), `note`, `source` (`timer` or `manual`), `autoStoppedAt`, `updatedAt`, `updatedBy` (subject, or `null` from inside the Environment) |
 
 ### Rules across records

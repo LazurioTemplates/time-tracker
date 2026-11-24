@@ -102,6 +102,74 @@ describe("repository-db store", () => {
     }
   });
 
+  test("a colleague's change of another field of the same client merges", async () => {
+    const fixture = createFixtureRepo({ sample: true });
+    // A clock that moves, as it does between two saves.
+    let clock = NOW;
+    const store = createRepositoryDbStore({
+      mountRoot: fixture.mountRoot,
+      expect: { remote: fixture.origin, branch: "v3", within: fixture.moduleRoot },
+      intervalMs: 0,
+      policy: POLICY,
+      now: () => (clock += 60_000),
+    });
+    try {
+      // Both start from a client the App wrote, with its audit bundle.
+      const opened = (await store.listClients()).find((row) => row.id === "example-bistro");
+      if (!opened) throw new Error("example-bistro missing");
+      const base = await store.saveClient(
+        opened.id,
+        { ...opened.value, name: "Bistro B" },
+        opened.revision,
+      );
+      let card = await store.draft();
+      await store.publish({ expectedRevision: card.revision ?? "" });
+
+      // A colleague's App archives the client and publishes first.
+      const colleague = colleagueClone(fixture);
+      const theirs = join(colleague, "data/clients/example-bistro.yaml");
+      const document = parseYaml(readFileSync(theirs, "utf8")) as {
+        record: Record<string, unknown>;
+      };
+      writeFileSync(
+        theirs,
+        toStableYaml({
+          ...document,
+          record: {
+            ...document.record,
+            archived: true,
+            revision: crypto.randomUUID(),
+            updatedAt: new Date(clock + 30_000).toISOString(),
+            updatedBy: null,
+          },
+        }),
+      );
+      git(colleague, ["commit", "--quiet", "--all", "--message", "Archive the bistro"]);
+      git(colleague, ["push", "--quiet"]);
+
+      // Here the name changes; the publish takes the colleague's work along.
+      const mine = await store.saveClient(
+        opened.id,
+        { ...base.value, name: "Bistro C" },
+        base.revision,
+      );
+      card = await store.draft();
+      await store.publish({ expectedRevision: card.revision ?? "" });
+      const merged = (await store.listClients()).find((row) => row.id === "example-bistro");
+      expect(merged?.value).toMatchObject({ name: "Bistro C", archived: true });
+      expect(merged?.revision).not.toBe(mine.revision);
+      const stored = parseYaml(
+        readFileSync(join(fixture.mountRoot, "data/clients/example-bistro.yaml"), "utf8"),
+      ) as { record: Record<string, unknown> };
+      expect(stored.record.revision).toStartWith("merge-");
+      expect(stored.record.updatedAt).toBe(mine.value.updatedAt);
+      expect((await store.draft()).status?.state).toBe("published");
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
   test("refuses a publish the data repository's validator rejects", async () => {
     const fixture = createFixtureRepo({ sample: true });
     const store = open(fixture);
