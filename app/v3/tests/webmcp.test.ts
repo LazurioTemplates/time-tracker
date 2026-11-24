@@ -1,9 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { hostedEnvironment } from "@lazurio/module-kit/tools/testing";
+import type { ModelContextLike, WebMcpTool } from "@lazurio/module-kit/webmcp";
 import { messages } from "../src/language/messages.ts";
 import { createAgentTools } from "../src/server/agent-tools.ts";
 import type { StoredEntry } from "../src/ui/api.ts";
-import { viewTools } from "../src/ui/webmcp.ts";
+import { installTools, viewTools } from "../src/ui/webmcp.ts";
 
 const ENTRY = {
   id: "f0000000-0000-4000-8000-000000000001",
@@ -67,5 +68,96 @@ describe("tools for agents: names and the page's view tool", () => {
       ok: false,
       reason: "not_found",
     });
+  });
+});
+
+/** Chromium's WebMCP: `registerTool` answers a promise that rejects with
+ * `AbortError` once the registration's signal aborts. */
+function chromiumModelContext() {
+  const active = new Set<string>();
+  let registrations = 0;
+  const context: ModelContextLike = {
+    registerTool: (tool: WebMcpTool, options) => {
+      registrations += 1;
+      active.add(tool.name);
+      return new Promise<void>((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          active.delete(tool.name);
+          reject(new DOMException("The registration was aborted.", "AbortError"));
+        });
+      });
+    },
+  };
+  return {
+    context,
+    active,
+    get registrations() {
+      return registrations;
+    },
+  };
+}
+
+const SERVER_TOOLS = {
+  tools: [
+    {
+      name: "list_projects",
+      description: "Lists the projects.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
+    },
+  ],
+};
+
+const serverFetch = (async () => Response.json(SERVER_TOOLS)) as unknown as typeof fetch;
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+describe("the page's registration in a browser with WebMCP", () => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => rejections.push(reason);
+  beforeEach(() => {
+    rejections.length = 0;
+    process.on("unhandledRejection", onRejection);
+  });
+  afterEach(() => {
+    process.off("unhandledRejection", onRejection);
+  });
+
+  test("removing and refreshing the tools leaves no unhandled AbortError and registers them again", async () => {
+    const browser = chromiumModelContext();
+    const views = viewTools({
+      t: messages.en,
+      entries: async () => ({ entries: [] }),
+      edit: () => {},
+    });
+    const installed = installTools(views, { modelContext: browser.context, fetch: serverFetch });
+    await settle();
+    expect([...browser.active].sort()).toEqual(["list_projects", "prepare_entry_correction"]);
+
+    installed.refresh();
+    await settle();
+    expect([...browser.active].sort()).toEqual(["list_projects", "prepare_entry_correction"]);
+    expect(browser.registrations).toBe(4);
+
+    installed.remove();
+    await settle();
+    expect(browser.active.size).toBe(0);
+    installed.refresh();
+    await settle();
+    expect(browser.active.size).toBe(0);
+    expect(rejections).toEqual([]);
+  });
+
+  test("a registration that fails leaves the page without tools and without an unhandled rejection", async () => {
+    const broken: ModelContextLike = {
+      registerTool: () => {
+        throw new Error("WebMCP is unavailable.");
+      },
+    };
+    const installed = installTools([], { modelContext: broken, fetch: serverFetch });
+    await settle();
+    installed.refresh();
+    installed.remove();
+    await settle();
+    expect(rejections).toEqual([]);
   });
 });

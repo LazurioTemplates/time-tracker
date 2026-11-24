@@ -21,6 +21,18 @@
   the App's own API, so the role, the writer rule and the revision decide as
   for a click; a copy that may not write lists only the reading tools.
   `prepare_entry_correction` stays a view tool of the page.
+- `stop_timer` stops the timer of the person the API sees: in
+  `bun run dev:demo` that is the demo's fictional person, so a timer started
+  through the tools there stops through them too.
+- `update_time_entry` refused with `record_changed` returns the entry's
+  `current_revision` while the entry still exists, also when another save
+  landed between the API's read and its own save.
+- `get_time_report` without `day` lets the API take today in the App's time
+  zone, instead of the server's UTC date, so a call around midnight no
+  longer reports the previous week or month.
+- The page handles the `AbortError` that WebMCP in Chromium answers when a
+  tool is removed (Lazurio/module-kit#14): removing and refreshing the tools
+  no longer raises unhandled rejections or Bun's error overlay.
 
 ## 0.2.1 — 2026-11-19
 

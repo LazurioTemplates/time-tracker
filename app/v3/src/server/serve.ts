@@ -31,6 +31,17 @@ export interface ServeOptions {
 }
 
 /**
+ * Whose timer the tools stop: only the fictional demo's API reads its own
+ * person (`options.viewer`), so the tools take the person from there; the App
+ * itself leaves the tools with the person the registry reads from `appAccess`.
+ */
+export function toolSelf(viewer: ServeOptions["viewer"]): {
+  self?: (request: Request) => string | null;
+} {
+  return viewer ? { self: (request) => viewer(request).viewer.person?.subject ?? null } : {};
+}
+
+/**
  * Starts the one server process of the App over a store: the API, the health
  * path and the client. Host and port come only from the Lazurio listener
  * (Module Standard); without them the process exits 2.
@@ -66,6 +77,7 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
     api,
     origin: app.externalOrigin ?? ownOrigin ?? `http://127.0.0.1:${app.port}`,
     language: options.language ?? instance.language,
+    ...toolSelf(options.viewer),
   });
 
   const hostAllowed = (req: Request) => {

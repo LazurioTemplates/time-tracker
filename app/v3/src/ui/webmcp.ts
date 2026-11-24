@@ -1,4 +1,9 @@
-import { type AgentTools, type PageViewTool, registerAgentTools } from "@lazurio/module-kit/webmcp";
+import {
+  type AgentTools,
+  type ModelContextLike,
+  type PageViewTool,
+  registerAgentTools,
+} from "@lazurio/module-kit/webmcp";
 import type { Messages } from "../language/messages.ts";
 import type { StoredEntry } from "./api.ts";
 
@@ -49,22 +54,62 @@ export interface InstalledTools {
   readonly refresh: () => void;
 }
 
+/**
+ * The browser's WebMCP API, or null without it. Chromium's `registerTool`
+ * returns a promise that rejects with `AbortError` once the registration's
+ * signal aborts, which is how a tool is removed; module-kit 0.6.0 leaves that
+ * promise unhandled (Lazurio/module-kit#14), so every removal and refresh
+ * would raise an unhandled rejection. The wrapper handles it and keeps the
+ * returned handle for a browser that unregisters by a method.
+ */
+export function pageModelContext(context?: ModelContextLike | null): ModelContextLike | null {
+  const scope = globalThis as {
+    document?: { modelContext?: ModelContextLike };
+    navigator?: { modelContext?: ModelContextLike };
+  };
+  const real =
+    context === undefined
+      ? (scope.document?.modelContext ?? scope.navigator?.modelContext ?? null)
+      : context;
+  if (real === null) return null;
+  return {
+    registerTool: (tool, options) => {
+      const handle = real.registerTool(tool, options);
+      const thenable = handle as { then?: unknown; catch?: unknown } | null | undefined;
+      if (typeof thenable?.then === "function")
+        Promise.resolve(handle as PromiseLike<unknown>).catch(() => {});
+      return handle;
+    },
+  };
+}
+
 /** Registers the server's tools and the view tool where the browser offers
  * WebMCP. */
-export function installTools(views: PageViewTool[]): InstalledTools {
+export function installTools(
+  views: PageViewTool[],
+  options: { modelContext?: ModelContextLike | null; fetch?: typeof fetch } = {},
+): InstalledTools {
   let tools: AgentTools | null = null;
   let stopped = false;
-  const ready = registerAgentTools({ viewTools: views }).then((registered) => {
-    if (stopped) registered.unregister();
-    else tools = registered;
-  });
+  // A failed registration leaves the page without tools for agents; the page
+  // works the same.
+  const ready = registerAgentTools({
+    viewTools: views,
+    modelContext: pageModelContext(options.modelContext),
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+  })
+    .then((registered) => {
+      if (stopped) registered.unregister();
+      else tools = registered;
+    })
+    .catch(() => {});
   return {
     remove: () => {
       stopped = true;
       tools?.unregister();
     },
     refresh: () => {
-      void ready.then(() => (stopped ? undefined : tools?.refresh()));
+      void ready.then(() => (stopped ? undefined : tools?.refresh())).catch(() => {});
     },
   };
 }

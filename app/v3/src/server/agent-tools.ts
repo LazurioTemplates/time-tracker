@@ -121,6 +121,13 @@ export interface AgentToolsOptions {
   env?: Record<string, string | undefined>;
   /** Receives every call's audit line (default: one JSON line to stdout). */
   audit?: (event: ToolAuditEvent) => void;
+  /**
+   * Whose timer `stop_timer` stops: the subject of the person the API sees for
+   * this request. Only the fictional demo, whose API reads a fictional person
+   * instead of Lazurio's statement, passes it (`serve.ts`); the App itself
+   * uses the person the registry read from `appAccess`.
+   */
+  self?: (request: Request) => string | null;
 }
 
 export function createAgentTools(options: AgentToolsOptions): ToolRegistry {
@@ -142,7 +149,26 @@ export function createAgentTools(options: AgentToolsOptions): ToolRegistry {
     return resultOf(await api(request));
   };
 
-  const self = (context: ToolContext) => context.access.person?.subject ?? null;
+  const self = (context: ToolContext) =>
+    options.self ? options.self(context.request) : (context.access.person?.subject ?? null);
+
+  /** A stale revision's refusal, with the record's current revision while it
+   * still exists (the kit's `current_revision`), read through the API as
+   * `find_time_entries` reads it: the agent reads the entry again and decides. */
+  const withCurrentRevision = async (
+    context: ToolContext,
+    entry: string,
+    result: ToolResult<object>,
+  ): Promise<ToolResult<object>> => {
+    if (result.ok || result.reason !== "record_changed") return result;
+    const found = await call(context, "/api/entries");
+    if (!found.ok) return result;
+    const entries = (found.data as { entries?: unknown }).entries;
+    const current = Array.isArray(entries)
+      ? (entries as Array<{ id: string; revision: string }>).find((row) => row.id === entry)
+      : undefined;
+    return current ? { ...result, current_revision: current.revision } : result;
+  };
 
   return createToolRegistry({
     app: {
@@ -241,11 +267,15 @@ export function createAgentTools(options: AgentToolsOptions): ToolRegistry {
         inputSchema: schemaOf(updateInput),
         minRole: "user",
         effect: "write",
-        run: ({ id: entry, ...input }, context) =>
-          call(context, `/api/entries/${encodeURIComponent(entry)}`, {
-            method: "PUT",
-            body: { ...input, note: input.note ?? "" },
-          }),
+        run: async ({ id: entry, ...input }, context) =>
+          withCurrentRevision(
+            context,
+            entry,
+            await call(context, `/api/entries/${encodeURIComponent(entry)}`, {
+              method: "PUT",
+              body: { ...input, note: input.note ?? "" },
+            }),
+          ),
       }),
       defineTool({
         name: "get_time_report",
@@ -255,14 +285,12 @@ export function createAgentTools(options: AgentToolsOptions): ToolRegistry {
         minRole: "user",
         effect: "read",
         untrustedContent: true,
+        // Without a day the API takes today in the App's time zone; the
+        // server's UTC date would be yesterday around midnight there.
         run: (input, context) =>
           call(
             context,
-            `/api/report${query({
-              period: input.period,
-              day: input.day ?? new Date().toISOString().slice(0, 10),
-              person: input.person,
-            })}`,
+            `/api/report${query({ period: input.period, day: input.day, person: input.person })}`,
           ),
       }),
     ],
