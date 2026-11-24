@@ -67,6 +67,27 @@ export function parseDocument<C extends CollectionName>(
   return parseOf(collection, id, envelope.record);
 }
 
+/**
+ * A record as the port stores it: the value with a new write revision in
+ * `record.revision`, a random value no earlier write had (Lazurio Module
+ * Standard, "One data port"). Every save of every collection goes through
+ * it, so after A → B → A the stored record differs from the first A.
+ */
+export function stamped<T extends object>(value: T): T & { revision: string } {
+  return { ...value, revision: crypto.randomUUID() };
+}
+
+/**
+ * The value the port hands out, without its write revision: the server, the
+ * UI and the tools name a version only by the opaque `Stored.revision`, and a
+ * value sent back never carries an old write revision into a save.
+ */
+export function unstamped<T extends object>(value: T): T {
+  if (!Object.hasOwn(value, "revision")) return value;
+  const { revision: _revision, ...rest } = value as T & { revision?: unknown };
+  return rest as T;
+}
+
 /** A domain rule's refusal as the store's error. */
 export function refuse(refusal: Refusal | null): void {
   if (refusal) throw new StoreError(refusal.code, refusal.message);

@@ -2,7 +2,7 @@ import { describe, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gatewayRequest, TEST_ORIGIN } from "@lazurio/module-kit/tools/testing";
-import { toStableYaml } from "@lazurio/repository-db";
+import { parseYaml, toStableYaml } from "@lazurio/repository-db";
 import { createRepositoryDbStore } from "../src/data/repository-db-store.ts";
 import { createApi } from "../src/server/api.ts";
 import { copyWrites } from "../src/server/viewer.ts";
@@ -53,6 +53,48 @@ describe("repository-db store", () => {
       const log = git(fixture.originPath, ["log", "-1", "--format=%s%n%(trailers:only)", "v3"]);
       expect(log).toContain("Friday afternoon");
       expect(log).toContain("Repository-Db-Source: time-tracker-v3");
+      expect(git(fixture.originPath, ["rev-list", "--count", "v3"])).toBe("2");
+    } finally {
+      store.close();
+      fixture.cleanup();
+    }
+  });
+
+  test("every save stores a new write revision, and a direct change that kept it is a change", async () => {
+    const fixture = createFixtureRepo({ sample: true });
+    const store = open(fixture);
+    try {
+      const file = join(fixture.mountRoot, `data/entries/${NEW_ID}.yaml`);
+      const written = () =>
+        parseYaml(readFileSync(file, "utf8")) as { record: Record<string, unknown> };
+      const first = await store.saveEntry(NEW_ID, newEntry(), null);
+      const firstWrite = written().record.revision;
+      expect(firstWrite).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+      const second = await store.saveEntry(NEW_ID, newEntry(), first.revision);
+      expect(written().record.revision).not.toBe(firstWrite);
+      expect(second.revision).not.toBe(first.revision);
+      // Someone edits the YAML by hand and keeps the write revision as it was.
+      const document = written();
+      writeFileSync(
+        file,
+        toStableYaml({ ...document, record: { ...document.record, note: "Ručně" } }),
+      );
+      expect(written().record.revision).toBe(document.record.revision);
+      const read = await store.getEntry(NEW_ID);
+      expect(read?.value.note).toBe("Ručně");
+      expect(read?.revision).not.toBe(second.revision);
+      await expect(
+        store.saveEntry(NEW_ID, newEntry({ note: "Moje" }), second.revision),
+      ).rejects.toMatchObject({ code: "record_changed" });
+      expect(written().record.note).toBe("Ručně");
+      // The data repository's validator takes the write revision.
+      const card = await store.draft();
+      expect(
+        card.records?.[0]?.resource.changes[0]?.fields.map((field) => field.fieldPath),
+      ).not.toContain("/revision");
+      await store.publish({ expectedRevision: card.revision ?? "" });
       expect(git(fixture.originPath, ["rev-list", "--count", "v3"])).toBe("2");
     } finally {
       store.close();

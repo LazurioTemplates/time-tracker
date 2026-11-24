@@ -91,6 +91,10 @@
               "type": "null"
             }
           ]
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [

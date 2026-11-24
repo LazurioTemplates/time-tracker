@@ -229,6 +229,47 @@ describe("tools for agents", () => {
       expect(retried.ok).toBe(true);
     });
 
+    test(`${transport}: after A → B → A the revision of the first A is stale`, async () => {
+      const { tools } = setup(true);
+      const entry = await jamiesEntry(call, tools);
+      const a = {
+        id: entry.id,
+        day: "2026-11-05",
+        from: "07:00",
+        to: "07:30",
+        project: entry.project,
+        note: "Before the stand-up",
+      };
+      const b = await call(
+        tools,
+        "update_time_entry",
+        { ...a, revision: entry.revision, note: "Changed" },
+        jamie,
+      );
+      expect(b.ok).toBe(true);
+      const back = await call(
+        tools,
+        "update_time_entry",
+        { ...a, revision: (b.data as { revision: string }).revision },
+        jamie,
+      );
+      expect(back.ok).toBe(true);
+      const current = (back.data as { revision: string }).revision;
+      // The clock stands still in the test, so A again is the same content as the first A.
+      expect(current).not.toBe(entry.revision);
+      const stale = await call(
+        tools,
+        "update_time_entry",
+        { ...a, revision: entry.revision, note: "From the first A" },
+        jamie,
+      );
+      expect(stale).toMatchObject({
+        ok: false,
+        reason: "record_changed",
+        current_revision: current,
+      });
+    });
+
     test(`${transport}: a change between the API's read and its save gives the newer revision`, async () => {
       let race = false;
       let meanwhile = "";

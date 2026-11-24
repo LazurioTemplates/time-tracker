@@ -12,7 +12,15 @@ import {
   type Refusal,
 } from "../domain/rules.ts";
 import type { Language } from "../language/messages.ts";
-import { byName, byStartDescending, parseOf, refuse, type Values } from "./records.ts";
+import {
+  byName,
+  byStartDescending,
+  parseOf,
+  refuse,
+  stamped,
+  unstamped,
+  type Values,
+} from "./records.ts";
 import { reviewResource } from "./review-adapter.ts";
 import type {
   DiscardScope,
@@ -39,6 +47,11 @@ export interface MemoryStoreSeed {
 
 type Key = `${CollectionName}/${string}`;
 
+/**
+ * The revision of a stored record: the hash of the record as stored, its
+ * write revision (`stamped`, new with every save) included, as the
+ * repository-db store hashes the file.
+ */
 function revisionOf(value: unknown): Revision {
   return `sha256:${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
 }
@@ -74,7 +87,7 @@ export function createMemoryStore(
       .filter(([key]) => key.startsWith(`${collection}/`))
       .map(([key, value]) => ({
         id: key.slice(collection.length + 1),
-        value: value as Values[C],
+        value: unstamped(value as Values[C]),
         revision: revisionOf(value),
       }));
   }
@@ -105,13 +118,15 @@ export function createMemoryStore(
     base: Revision | null,
     refusal: (value: Values[C], previous: Values[C] | null) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
-    const value = parseOf(collection, id, input);
+    const value = unstamped(parseOf(collection, id, input));
     const key: Key = `${collection}/${id}`;
     assertBase(key, base);
-    refuse(refusal(value, (draft.get(key) as Values[C] | undefined) ?? null));
-    draft.set(key, value);
+    const previous = draft.get(key) as Values[C] | undefined;
+    refuse(refusal(value, previous === undefined ? null : unstamped(previous)));
+    const stored = stamped(value);
+    draft.set(key, stored);
     emit({ type: "draft-changed" });
-    return { id, value, revision: revisionOf(value) };
+    return { id, value, revision: revisionOf(stored) };
   }
 
   function assertRevision(expected: string) {

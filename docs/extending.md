@@ -23,6 +23,20 @@ with a security fix.
   (`app/v3/src/data/store.ts`) named by the domain (`archiveClient`, not
   `moveFile`), implemented in every store and covered by
   `tests/store-contract.ts`. The server and the UI call only the port.
+- **Revisions.** Every write of the port stores a new random write revision
+  in the record's `revision` field (`stamped` in
+  `app/v3/src/data/records.ts`, `crypto.randomUUID()`), in every collection,
+  and the revision the port hands out and compares (`baseRevision`) is the
+  hash of the stored record, write revision and content together. A new
+  collection's Zod schema takes `revision: writeRevision` (optional) and a
+  new write goes through `stamped`; the values the port hands out leave the
+  field out (`unstamped`). Never derive a revision from the content alone or
+  count writes: after A → B → A a content fingerprint repeats (Lazurio Module
+  Standard, "One data port"). `tests/store-contract.ts` checks A → B → A for
+  every store. repository-db 3.4.0 treats `record.revision` as audit metadata
+  with `updatedAt` and `updatedBy`: a record without `updatedAt` (clients,
+  projects) merges no concurrent edit once it carries a revision, so give a
+  collection that must merge concurrent edits an `updatedAt` its saves set.
 - **A new page or action** is a React component in `app/v3/src/ui/` calling
   only the HTTP API (`app/v3/src/ui/api.ts`), with its tool for agents in
   `app/v3/src/server/agent-tools.ts` when people and agents do it often. A

@@ -23,6 +23,10 @@
         },
         "archived": {
           "type": "boolean"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [

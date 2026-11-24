@@ -11,6 +11,24 @@
   application too, and every audit line carries the tool's `effect`. This
   template offers no publication tool.
   Nothing in an adopted copy's own files changes; take it by merging the tag.
+- `@lazurio/repository-db` v3.4.0 instead of v3.2.6, and a write revision in
+  every record: each save of a client, project or entry stores a new random
+  value in `record.revision` (Lazurio Module Standard, "One data port"), so a
+  record saved back to an earlier content is still a new version and a stale
+  edit is refused with `record_changed` instead of overwriting it. Records
+  without `revision` (the seed data, everything saved before) stay valid and
+  get one with their next save.
+  **Before you deploy this release**, copy the regenerated
+  `templates/data-repo/schemas/` into the Organization's data repository in
+  a pull request of its own and merge it: the data repository's validator
+  refuses a record with `revision` until its schemas allow it, so a publish
+  would fail with `validation_failed`.
+  With v3.4.0 two published edits of different fields of one entry still
+  merge (the later `updatedAt` decides the bookkeeping, the merged record
+  gets the revision `merge-<sha256>`). Clients and projects have no
+  `updatedAt`, so two concurrent edits of one client or project now stop as
+  a conflict on `/record/revision` for a person to resolve, where they merged
+  before.
 
 ### For agents
 
@@ -30,6 +48,16 @@
 - `get_time_report` without `day` lets the API take today in the App's time
   zone, instead of the server's UTC date, so a call around midnight no
   longer reports the previous week or month.
+- The revision the port, the API and the tools hand out is still opaque
+  (`sha256:` of the record's file), but it now changes with every write:
+  after A → B → A the revision of the first A is stale and
+  `update_time_entry` answers `record_changed` with `current_revision`. Read
+  the record again and use that revision; never derive one from the content.
+  The values the port hands out leave `record.revision` out.
+- Changing a record's YAML by hand in the data checkout: write a new
+  `record.revision` (`crypto.randomUUID()`) with every change. The port also
+  notices a change that kept the old value (it hashes the whole file), but
+  repository-db 3.4.0 refuses to merge such a record on `/record/revision`.
 - The page handles the `AbortError` that WebMCP in Chromium answers when a
   tool is removed (Lazurio/module-kit#14): removing and refreshing the tools
   no longer raises unhandled rejections or Bun's error overlay.

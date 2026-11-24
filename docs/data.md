@@ -3,7 +3,7 @@
 Time Tracker keeps no data in this repository. Each Organization keeps its
 records in its own data repository, `<Organization>/time-tracker-data`, on
 branch `v3`, checked out as `db/` at the Module root and managed by
-[repository-db](https://github.com/Lazurio/repository-db) v3.2.6. Time
+[repository-db](https://github.com/Lazurio/repository-db) v3.4.0. Time
 entries are personal data (who worked when and on what): keep the repository
 private and never copy its records elsewhere.
 
@@ -13,6 +13,10 @@ Three collections in the layout of the stack profile: one document
 `data/<collection>/<id>.yaml` each, in the engine's envelope (`schemaVersion`,
 `id`, `record`). The Zod schemas in `app/v3/src/domain/` are the only
 definition; `templates/data-repo/schemas/` is generated from them.
+Every record may also carry `revision`, the write revision the App stores
+with every save (a new random UUID, or `merge-<sha256>` after repository-db
+merged two edits); it is bookkeeping, not shown in the review, and a record
+without it is valid.
 
 | Collection | `schemaVersion` | id | record |
 | --- | --- | --- | --- |
