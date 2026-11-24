@@ -12,7 +12,16 @@ import {
   type Refusal,
 } from "../domain/rules.ts";
 import type { Language } from "../language/messages.ts";
-import { byName, byStartDescending, parseOf, refuse, type Values } from "./records.ts";
+import {
+  audited,
+  byName,
+  byStartDescending,
+  parseOf,
+  refuse,
+  stamped,
+  unstamped,
+  type Values,
+} from "./records.ts";
 import { reviewResource } from "./review-adapter.ts";
 import type {
   DiscardScope,
@@ -39,6 +48,11 @@ export interface MemoryStoreSeed {
 
 type Key = `${CollectionName}/${string}`;
 
+/**
+ * The revision of a stored record: the hash of the record as stored, its
+ * write revision (`stamped`, new with every save) included, as the
+ * repository-db store hashes the file.
+ */
 function revisionOf(value: unknown): Revision {
   return `sha256:${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
 }
@@ -74,7 +88,7 @@ export function createMemoryStore(
       .filter(([key]) => key.startsWith(`${collection}/`))
       .map(([key, value]) => ({
         id: key.slice(collection.length + 1),
-        value: value as Values[C],
+        value: unstamped(value as Values[C]),
         revision: revisionOf(value),
       }));
   }
@@ -103,15 +117,18 @@ export function createMemoryStore(
     id: string,
     input: Values[C],
     base: Revision | null,
+    actor: string | null | undefined,
     refusal: (value: Values[C], previous: Values[C] | null) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
-    const value = parseOf(collection, id, input);
+    const value = audited(collection, unstamped(parseOf(collection, id, input)), now(), actor);
     const key: Key = `${collection}/${id}`;
     assertBase(key, base);
-    refuse(refusal(value, (draft.get(key) as Values[C] | undefined) ?? null));
-    draft.set(key, value);
+    const previous = draft.get(key) as Values[C] | undefined;
+    refuse(refusal(value, previous === undefined ? null : unstamped(previous)));
+    const stored = stamped(value);
+    draft.set(key, stored);
     emit({ type: "draft-changed" });
-    return { id, value, revision: revisionOf(value) };
+    return { id, value, revision: revisionOf(stored) };
   }
 
   function assertRevision(expected: string) {
@@ -122,16 +139,16 @@ export function createMemoryStore(
   return {
     available: async () => ({ ok: true }),
     listClients: async () => snapshot().clients,
-    saveClient: (id, value, base) => save("clients", id, value, base, () => null),
+    saveClient: (id, value, base, actor) => save("clients", id, value, base, actor, () => null),
     listProjects: async () => snapshot().projects,
-    saveProject: (id, value, base) =>
-      save("projects", id, value, base, (next, previous) =>
+    saveProject: (id, value, base, actor) =>
+      save("projects", id, value, base, actor, (next, previous) =>
         projectRefusal(next, previous, snapshot(), language),
       ),
     listEntries: async () => snapshot().entries,
     getEntry: async (id) => snapshot().entries.find((row) => row.id === id) ?? null,
-    saveEntry: (id, value, base) =>
-      save("entries", id, value, base, (next, previous) =>
+    saveEntry: (id, value, base, actor) =>
+      save("entries", id, value, base, actor, (next, previous) =>
         entryRefusal(id, next, previous, snapshot(), now(), policy, language),
       ),
     async deleteEntry(id, base) {

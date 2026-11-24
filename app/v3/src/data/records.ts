@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Client } from "../domain/client.ts";
 import { type CollectionName, collections } from "../domain/collections.ts";
+import { subject } from "../domain/common.ts";
 import type { Entry } from "../domain/entry.ts";
 import type { Project } from "../domain/project.ts";
 import type { Refusal } from "../domain/rules.ts";
@@ -65,6 +66,55 @@ export function parseDocument<C extends CollectionName>(
       `${label}: id is ${JSON.stringify(envelope.id)}, the file name says ${id}`,
     );
   return parseOf(collection, id, envelope.record);
+}
+
+/**
+ * A record as the port stores it: the value with a new write revision in
+ * `record.revision`, a random value no earlier write had (Lazurio Module
+ * Standard, "One data port"). Every save of every collection goes through
+ * it, so after A → B → A the stored record differs from the first A.
+ */
+export function stamped<T extends object>(value: T): T & { revision: string } {
+  return { ...value, revision: crypto.randomUUID() };
+}
+
+/**
+ * A client or project as the port stores it: the instant and the person of
+ * the save in `updatedAt` and `updatedBy`. With the write revision they are
+ * repository-db's audit bundle, so two concurrent edits of different fields
+ * of one record merge and the later save's bundle is kept (repository-db
+ * 3.4.0). An entry's `updatedAt` and `updatedBy` are its own fields, set by
+ * the server, and stay as given.
+ *
+ * `updatedBy` is the actor's subject, `null` without one (from inside the
+ * Environment). An actor that is not a Lazurio subject is left out rather
+ * than refusing the save; an earlier `updatedBy` is never carried over.
+ */
+export function audited<C extends CollectionName>(
+  collection: C,
+  value: Values[C],
+  at: number,
+  actor: string | null | undefined,
+): Values[C] {
+  if (collection === "entries") return value;
+  const { updatedBy: _previous, ...rest } = value as Client | Project;
+  const by = actor == null ? null : subject.safeParse(actor).success ? actor : undefined;
+  return {
+    ...rest,
+    updatedAt: new Date(at).toISOString(),
+    ...(by === undefined ? {} : { updatedBy: by }),
+  } as Values[C];
+}
+
+/**
+ * The value the port hands out, without its write revision: the server, the
+ * UI and the tools name a version only by the opaque `Stored.revision`, and a
+ * value sent back never carries an old write revision into a save.
+ */
+export function unstamped<T extends object>(value: T): T {
+  if (!Object.hasOwn(value, "revision")) return value;
+  const { revision: _revision, ...rest } = value as T & { revision?: unknown };
+  return rest as T;
 }
 
 /** A domain rule's refusal as the store's error. */

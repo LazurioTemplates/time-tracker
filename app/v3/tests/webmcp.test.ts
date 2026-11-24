@@ -1,151 +1,163 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { hostedEnvironment } from "@lazurio/module-kit/tools/testing";
+import type { ModelContextLike, WebMcpTool } from "@lazurio/module-kit/webmcp";
 import { messages } from "../src/language/messages.ts";
-import type { api } from "../src/ui/api.ts";
-import { timeTrackerTools, WRITE_TOOLS } from "../src/ui/webmcp.ts";
+import { createAgentTools } from "../src/server/agent-tools.ts";
+import type { StoredEntry } from "../src/ui/api.ts";
+import { installTools, viewTools } from "../src/ui/webmcp.ts";
 
-type Api = Parameters<typeof timeTrackerTools>[0]["api"];
+const ENTRY = {
+  id: "f0000000-0000-4000-8000-000000000001",
+  revision: "sha256:x",
+  pending: true,
+  value: { person: "me", endedAt: null },
+} as unknown as StoredEntry;
 
-/** An API that records which call each tool makes, like the interface's buttons do. */
-function recording() {
-  const calls: string[] = [];
-  const entry = {
-    id: "f0000000-0000-4000-8000-000000000001",
-    revision: "sha256:x",
-    pending: true,
-    value: { person: "me", endedAt: null },
-  };
-  const fake = {
-    entries: async () => {
-      calls.push("entries");
-      return { now: 0, entries: [entry] };
-    },
-    catalog: async () => {
-      calls.push("catalog");
-      return { clients: [], projects: [] };
-    },
-    start: async () => {
-      calls.push("start");
-      return entry;
-    },
-    stop: async (id: string, revision: string) => {
-      calls.push(`stop ${id} ${revision}`);
-      return entry;
-    },
-    addEntry: async () => {
-      calls.push("addEntry");
-      return entry;
-    },
-    saveEntry: async () => {
-      calls.push("saveEntry");
-      return entry;
-    },
-    report: async () => {
-      calls.push("report");
-      return {};
-    },
-  } as unknown as Api;
-  return { calls, fake };
-}
-
-describe("WebMCP tools", () => {
-  test("name the App's main actions, verb first, with JSON Schema inputs, and publish nothing", () => {
-    const { fake } = recording();
-    const tools = timeTrackerTools({
-      canWrite: true,
-      t: messages.cs,
-      api: fake,
-      self: "me",
-      edit: () => {},
-      changed: async () => {},
-    });
-    expect(tools.map((tool) => tool.name)).toEqual([
-      "find_time_entries",
-      "list_projects",
-      "start_timer",
-      "stop_timer",
-      "add_time_entry",
-      "update_time_entry",
-      "get_time_report",
-      "prepare_entry_correction",
-    ]);
-    for (const tool of tools) {
-      expect(tool.name).toMatch(/^[a-z]+(?:_[a-z]+)+$/);
-      expect(tool.inputSchema.type).toBe("object");
-      expect(tool.inputSchema.additionalProperties).toBe(false);
-      expect(tool.description).toBe(messages.cs.tools[tool.name as keyof typeof messages.cs.tools]);
+describe("tools for agents: names and the page's view tool", () => {
+  test("the server's tools are named verb first, take JSON Schema inputs, speak the App's language and publish nothing", () => {
+    for (const language of ["cs", "en"] as const) {
+      const registry = createAgentTools({
+        api: async () => Response.json({}),
+        origin: "http://127.0.0.1:24905",
+        language,
+        env: hostedEnvironment({ writer: true }),
+        audit: () => {},
+      });
+      const tools = registry.list({
+        entry: "app",
+        appRole: "admin",
+        person: { subject: "me", username: "me" },
+        source: "gateway",
+        reason: null,
+      } as unknown as Parameters<typeof registry.list>[0]);
+      const own = tools.filter((tool) => tool.name !== "get_app_context");
+      expect(own.map((tool) => tool.name)).toEqual([
+        "find_time_entries",
+        "list_projects",
+        "start_timer",
+        "stop_timer",
+        "add_time_entry",
+        "update_time_entry",
+        "get_time_report",
+      ]);
+      for (const tool of own) {
+        expect(tool.name).toMatch(/^[a-z]+(?:_[a-z]+)+$/);
+        expect(tool.inputSchema.type).toBe("object");
+        expect(tool.inputSchema.additionalProperties).toBe(false);
+        expect(tool.description).toBe(
+          messages[language].tools[tool.name as keyof (typeof messages)["cs"]["tools"]],
+        );
+        expect(tool.effect).not.toBe("publish");
+      }
     }
-    expect(tools.some((tool) => /publish|delete|remove/.test(tool.name))).toBe(false);
-    const english = timeTrackerTools({
-      canWrite: true,
-      t: messages.en,
-      api: fake,
-      self: "me",
-      edit: () => {},
-      changed: async () => {},
-    });
-    expect(english[0]?.description).toBe(messages.en.tools.find_time_entries);
   });
 
-  test("offer only reading tools to a copy that may not write", () => {
-    const { fake } = recording();
-    const tools = timeTrackerTools({
-      canWrite: false,
-      t: messages.cs,
-      api: fake,
-      self: "me",
-      edit: () => {},
-      changed: async () => {},
-    });
-    expect(tools.map((tool) => tool.name)).toEqual([
-      "find_time_entries",
-      "list_projects",
-      "get_time_report",
-    ]);
-    expect(tools.some((tool) => WRITE_TOOLS.has(tool.name))).toBe(false);
-  });
-
-  test("go through the same API calls as the buttons", async () => {
-    const { calls, fake } = recording();
+  test("the page's view tool opens the edit dialog and changes nothing", async () => {
     let opened = "";
-    let refreshed = 0;
-    const tools = timeTrackerTools({
-      canWrite: true,
+    const [tool] = viewTools({
       t: messages.en,
-      api: fake,
-      self: "me",
+      entries: async () => ({ entries: [ENTRY] }),
       edit: (entry) => {
         opened = entry.id;
       },
-      changed: async () => {
-        refreshed += 1;
-      },
     });
-    const run = (name: string, input: Record<string, unknown> = {}) =>
-      tools.find((tool) => tool.name === name)?.execute(input);
-    await run("start_timer", { project: "new-website" });
-    await run("stop_timer");
-    await run("add_time_entry", {
-      day: "2026-11-06",
-      from: "09:00",
-      to: "10:00",
-      project: "new-website",
+    expect(tool?.name).toBe("prepare_entry_correction");
+    expect(await tool?.execute({ id: ENTRY.id })).toEqual({ ok: true, data: { opened: ENTRY.id } });
+    expect(opened).toBe(ENTRY.id);
+    expect(await tool?.execute({ id: "missing" })).toMatchObject({
+      ok: false,
+      reason: "not_found",
     });
-    await run("prepare_entry_correction", { id: "f0000000-0000-4000-8000-000000000001" });
-    expect(calls).toEqual([
-      "start",
-      "entries",
-      "stop f0000000-0000-4000-8000-000000000001 sha256:x",
-      "addEntry",
-      "entries",
-    ]);
-    expect(opened).toBe("f0000000-0000-4000-8000-000000000001");
-    expect(refreshed).toBe(3);
-    const missing = (await run("prepare_entry_correction", { id: "nothing" })) as {
-      ok: boolean;
-      code: string;
-    };
-    expect(missing).toMatchObject({ ok: false, code: "not_found" });
   });
 });
 
-void (null as unknown as typeof api);
+/** Chromium's WebMCP: `registerTool` answers a promise that rejects with
+ * `AbortError` once the registration's signal aborts. */
+function chromiumModelContext() {
+  const active = new Set<string>();
+  let registrations = 0;
+  const context: ModelContextLike = {
+    registerTool: (tool: WebMcpTool, options) => {
+      registrations += 1;
+      active.add(tool.name);
+      return new Promise<void>((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          active.delete(tool.name);
+          reject(new DOMException("The registration was aborted.", "AbortError"));
+        });
+      });
+    },
+  };
+  return {
+    context,
+    active,
+    get registrations() {
+      return registrations;
+    },
+  };
+}
+
+const SERVER_TOOLS = {
+  tools: [
+    {
+      name: "list_projects",
+      description: "Lists the projects.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
+    },
+  ],
+};
+
+const serverFetch = (async () => Response.json(SERVER_TOOLS)) as unknown as typeof fetch;
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+describe("the page's registration in a browser with WebMCP", () => {
+  const rejections: unknown[] = [];
+  const onRejection = (reason: unknown) => rejections.push(reason);
+  beforeEach(() => {
+    rejections.length = 0;
+    process.on("unhandledRejection", onRejection);
+  });
+  afterEach(() => {
+    process.off("unhandledRejection", onRejection);
+  });
+
+  test("removing and refreshing the tools leaves no unhandled AbortError and registers them again", async () => {
+    const browser = chromiumModelContext();
+    const views = viewTools({
+      t: messages.en,
+      entries: async () => ({ entries: [] }),
+      edit: () => {},
+    });
+    const installed = installTools(views, { modelContext: browser.context, fetch: serverFetch });
+    await settle();
+    expect([...browser.active].sort()).toEqual(["list_projects", "prepare_entry_correction"]);
+
+    installed.refresh();
+    await settle();
+    expect([...browser.active].sort()).toEqual(["list_projects", "prepare_entry_correction"]);
+    expect(browser.registrations).toBe(4);
+
+    installed.remove();
+    await settle();
+    expect(browser.active.size).toBe(0);
+    installed.refresh();
+    await settle();
+    expect(browser.active.size).toBe(0);
+    expect(rejections).toEqual([]);
+  });
+
+  test("a registration that fails leaves the page without tools and without an unhandled rejection", async () => {
+    const broken: ModelContextLike = {
+      registerTool: () => {
+        throw new Error("WebMCP is unavailable.");
+      },
+    };
+    const installed = installTools([], { modelContext: broken, fetch: serverFetch });
+    await settle();
+    installed.refresh();
+    installed.remove();
+    await settle();
+    expect(rejections).toEqual([]);
+  });
+});

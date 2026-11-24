@@ -19,6 +19,15 @@ export const entryId = z.string().regex(UUID, "An entry id is a lowercase UUID."
 /** A moment, ISO 8601 in UTC (`2026-11-05T08:30:00.000Z`). */
 export const instant = z.iso.datetime();
 
+/**
+ * The write revision a stored record carries in `record.revision`: a new
+ * random value (`crypto.randomUUID()`) the storage port writes with every
+ * save, or the engine's `merge-<sha256>` after a merge. It is audit metadata
+ * of the port (Lazurio Module Standard, "One data port"), not a field a
+ * person edits; a record saved before it existed, like the seed data, has none.
+ */
+export const writeRevision = z.string().min(1).optional();
+
 /** A calendar day in the Organization's time zone, `YYYY-MM-DD`. */
 export const day = z.iso.date();
 

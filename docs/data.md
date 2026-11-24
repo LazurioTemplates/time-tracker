@@ -3,7 +3,7 @@
 Time Tracker keeps no data in this repository. Each Organization keeps its
 records in its own data repository, `<Organization>/time-tracker-data`, on
 branch `v3`, checked out as `db/` at the Module root and managed by
-[repository-db](https://github.com/Lazurio/repository-db) v3.2.6. Time
+[repository-db](https://github.com/Lazurio/repository-db) v3.4.0. Time
 entries are personal data (who worked when and on what): keep the repository
 private and never copy its records elsewhere.
 
@@ -13,11 +13,15 @@ Three collections in the layout of the stack profile: one document
 `data/<collection>/<id>.yaml` each, in the engine's envelope (`schemaVersion`,
 `id`, `record`). The Zod schemas in `app/v3/src/domain/` are the only
 definition; `templates/data-repo/schemas/` is generated from them.
+Every record may also carry `revision`, the write revision the App stores
+with every save (a new random UUID, or `merge-<sha256>` after repository-db
+merged two edits); it is bookkeeping, not shown in the review, and a record
+without it is valid.
 
 | Collection | `schemaVersion` | id | record |
 | --- | --- | --- | --- |
-| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived` |
-| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived` |
+| `clients` | `time-tracker.client.v1` | a slug from the name (`example-bistro`) | `name`, `archived`, `updatedAt` and `updatedBy` (optional, set by every save) |
+| `projects` | `time-tracker.project.v1` | a slug from the name (`new-website`) | `name`, `client` (a client's id, or `null` for the Organization's own work), `billable`, `archived`, `updatedAt` and `updatedBy` (optional, set by every save) |
 | `entries` | `time-tracker.entry.v1` | a lowercase UUID | `person` (Lazurio subject), `personName` (username, or `null`), `project`, `startedAt`, `endedAt` (`null` while running), `note`, `source` (`timer` or `manual`), `autoStoppedAt`, `updatedAt`, `updatedBy` (subject, or `null` from inside the Environment) |
 
 ### Rules across records

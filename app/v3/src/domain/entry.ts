@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { instant, slugId, subject } from "./common.ts";
+import { instant, slugId, subject, writeRevision } from "./common.ts";
 
 export const ENTRY_SCHEMA_VERSION = "time-tracker.entry.v1";
 
@@ -29,6 +29,8 @@ export const entry = z
     updatedAt: instant,
     /** Who saved it last: a subject, or `null` from inside the Environment (an agent, a script). */
     updatedBy: subject.nullable(),
+    /** The write revision the storage port stores with every save. */
+    revision: writeRevision,
   })
   .superRefine((value, context) => {
     if (value.endedAt !== null && Date.parse(value.endedAt) < Date.parse(value.startedAt))

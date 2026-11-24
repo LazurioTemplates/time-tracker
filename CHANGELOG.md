@@ -2,6 +2,72 @@
 
 ## Unreleased
 
+### For whoever runs it
+
+- **All writers at once.** With `app-data@2027.03` (`@lazurio/repository-db`
+  v3.4.0) every writer of the Module's data stores a new `record.revision` on
+  every write: the App, an import, an agent's script, a direct change. Take
+  this release in every Environment that writes the same data before their
+  writes meet. A writer that keeps or leaves out the revision makes the merge
+  fail on `/record/revision`.
+- The stack profile release `app-data@2027.03`: `@lazurio/module-kit` v0.6.0
+  instead of v0.4.0. A runtime that states production never writes without
+  `LAZURIO_RUNTIME_DATA_WRITER=true` (module-kit 0.4.1). module-kit 0.6.0
+  offers an App's publication tools (`effect: "publish"`) in a production
+  application too, and every audit line carries the tool's `effect`. This
+  template offers no publication tool.
+  Nothing in an adopted copy's own files changes; take it by merging the tag.
+- `@lazurio/repository-db` v3.4.0 instead of v3.2.6, and a write revision in
+  every record: each save of a client, project or entry stores a new random
+  value in `record.revision` (Lazurio Module Standard, "One data port"), so a
+  record saved back to an earlier content is still a new version and a stale
+  edit is refused with `record_changed` instead of overwriting it. Records
+  without `revision` (the seed data, everything saved before) stay valid and
+  get one with their next save.
+  **Before you deploy this release**, copy the regenerated
+  `templates/data-repo/schemas/` into the Organization's data repository in
+  a pull request of its own and merge it: the data repository's validator
+  refuses a record with `revision` until its schemas allow it, so a publish
+  would fail with `validation_failed`.
+  Every save of a client or project also stores `updatedAt` and `updatedBy`
+  (who saved it, `null` from inside the Environment), as entries already do.
+  With v3.4.0 two concurrent edits of different fields of one client,
+  project or entry therefore still merge, as before: the later `updatedAt`
+  keeps its bookkeeping and the merged record gets the revision
+  `merge-<sha256>`. The same field changed on both sides stays a conflict.
+
+### For agents
+
+- The tools for agents are defined once on the server
+  (`app/v3/src/server/agent-tools.ts`) and offered on `/mcp` of the
+  Application and to the page (`/api/agent-tools`, registered by
+  `@lazurio/module-kit/webmcp`), with the same names as before. Each calls
+  the App's own API, so the role, the writer rule and the revision decide as
+  for a click; a copy that may not write lists only the reading tools.
+  `prepare_entry_correction` stays a view tool of the page.
+- `stop_timer` stops the timer of the person the API sees: in
+  `bun run dev:demo` that is the demo's fictional person, so a timer started
+  through the tools there stops through them too.
+- `update_time_entry` refused with `record_changed` returns the entry's
+  `current_revision` while the entry still exists, also when another save
+  landed between the API's read and its own save.
+- `get_time_report` without `day` lets the API take today in the App's time
+  zone, instead of the server's UTC date, so a call around midnight no
+  longer reports the previous week or month.
+- The revision the port, the API and the tools hand out is still opaque
+  (`sha256:` of the record's file), but it now changes with every write:
+  after A → B → A the revision of the first A is stale and
+  `update_time_entry` answers `record_changed` with `current_revision`. Read
+  the record again and use that revision; never derive one from the content.
+  The values the port hands out leave `record.revision` out.
+- Changing a record's YAML by hand in the data checkout: write a new
+  `record.revision` (`crypto.randomUUID()`) with every change. The port also
+  notices a change that kept the old value (it hashes the whole file), but
+  repository-db 3.4.0 refuses to merge such a record on `/record/revision`.
+- The page handles the `AbortError` that WebMCP in Chromium answers when a
+  tool is removed (Lazurio/module-kit#14): removing and refreshing the tools
+  no longer raises unhandled rejections or Bun's error overlay.
+
 ## 0.2.1 — 2026-11-19
 
 ### For people

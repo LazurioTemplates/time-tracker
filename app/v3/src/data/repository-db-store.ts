@@ -28,12 +28,15 @@ import {
 import { type Language, messages } from "../language/messages.ts";
 import { originOf } from "./origin.ts";
 import {
+  audited,
   byName,
   byStartDescending,
   parseDocument,
   parseOf,
   recordSchema,
   refuse,
+  stamped,
+  unstamped,
   type Values,
 } from "./records.ts";
 import { createReviewAdapter, recordOfPath } from "./review-adapter.ts";
@@ -85,6 +88,12 @@ interface Snapshot {
  * read goes through the sync host's `read`, every write through its queue
  * (`run`) and the engine's collections with the base revision, so the App
  * never runs Git on its data and two writes never interleave.
+ *
+ * Every save stores a new random write revision in `record.revision` (and a
+ * client's or project's `updatedAt` and `updatedBy`, see `audited`); the
+ * revision the port hands out and compares is the hash of the record's file,
+ * which covers that write revision and the content (Lazurio Module Standard,
+ * "One data port"). The values it hands out leave `record.revision` out.
  */
 export function createRepositoryDbStore(options: RepositoryDbStoreOptions): TimeStore {
   const { mountRoot, policy } = options;
@@ -191,14 +200,17 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
       const path = pathOf(db, collection, id);
       const text = readDataFile(mountRoot, path);
       if (text === null) continue;
-      // Payload and revision come from one read.
+      // Payload and revision come from one read. The revision is the hash of
+      // the file as stored, so it covers the write revision every save puts in
+      // `record.revision` and the content: a direct change that kept the old
+      // write revision still gives a new one.
       const revision = recordRevisionFromBytes(Buffer.from(text, "utf8"));
       const cached = parsed.get(path);
       try {
         const value =
           cached?.revision === revision
             ? cached.value
-            : parseDocument(collection, id, parseYaml(text));
+            : unstamped(parseDocument(collection, id, parseYaml(text)));
         parsed.set(path, { revision, value });
         records.push({ id, value: value as Values[C], revision });
       } catch (error) {
@@ -230,7 +242,7 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
     actor: string | null | undefined,
     refusal: (value: Values[C], previous: Values[C] | null, data: Snapshot) => Refusal | null,
   ): Promise<Stored<Values[C]>> {
-    const value = parseOf(collection, id, input);
+    const value = audited(collection, unstamped(parseOf(collection, id, input)), now(), actor);
     // The origin of the request, taken before the write waits in the queue.
     const origin = originOf(SOURCE);
     return engine(() =>
@@ -242,12 +254,14 @@ export function createRepositoryDbStore(options: RepositoryDbStoreOptions): Time
         if (baseRevision !== null && !existing)
           throw new StoreError("record_changed", `${collection}/${id} no longer exists.`);
         refuse(refusal(value, existing?.value ?? null, data));
+        // A new write revision in the record, and the engine's compare of the
+        // stored file's hash with `baseRevision` under its draft-write lock.
         const revision = db
           .collection<Values[C]>(collection, {
             schemaVersion: collections[collection].schemaVersion,
             parser: recordSchema(collection),
           })
-          .put(id, value, {}, { baseRevision });
+          .put(id, stamped(value), {}, { baseRevision });
         hint(db, [pathOf(db, collection, id)], origin, actor);
         return { id, value, revision };
       }),

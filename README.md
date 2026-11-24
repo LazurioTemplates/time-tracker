@@ -45,7 +45,7 @@ are English. Screenshots: [`docs/screenshots/cs/`](docs/screenshots/cs/) and
 | | |
 | --- | --- |
 | App generation | `app/v3`: data in [repository-db](https://github.com/Lazurio/repository-db) |
-| Stack profile | [`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data), release 2026.12 (`app-data@2026.12`): Bun 1.4.4, TypeScript 7.0.2, Vite 8.3.5, React 19.3.1, Biome 2.6.4, Zod 4.6.7, `@lazurio/repository-db` v3.2.6, `@lazurio/module-kit` v0.4.0; exact versions only |
+| Stack profile | [`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data), release 2027.03 (`app-data@2027.03`): Bun 1.4.4, TypeScript 7.0.2, Vite 8.3.5, React 19.3.1, Biome 2.6.4, Zod 4.6.7, `@lazurio/repository-db` v3.4.0, `@lazurio/module-kit` v0.6.0; exact versions only |
 | Born from | `lazurio module create --stack vite-react --data` of LazurioPlatform `main` |
 | Data | the Organization's own repository `time-tracker-data`, branch `v3`, checked out as `db/` |
 | Shape of the data | Zod schemas in `app/v3/src/domain/`; the JSON Schemas of the data repository are generated from them |
@@ -57,9 +57,10 @@ app/v3/src/
   domain/      Zod schemas and pure logic: time, calendar, rules, reports, CSV, access
   data/        the storage port (store.ts), its repository-db and memory implementations,
                the review adapter
-  server/      Bun.serve: the HTTP API over the port, appAccess, health, the client
+  server/      Bun.serve: the HTTP API over the port, the tools for agents (/mcp and the page),
+               appAccess, health, the client
   ui/          React over the HTTP API with the design system's components
-               (design-system/react), the App's own layout (styles.css), WebMCP tools
+               (design-system/react), the App's own layout (styles.css), the page's tools
   language/    every text for people, Czech and English
   instance/    the Organization's own settings: name, language, time zone, timer limit
   cli/         schema export and the rules check of the data
@@ -106,10 +107,11 @@ repository. The screenshots come from it.
 `AGENTS.md` holds the rules. The procedures live as skills in
 `.agents/skills/` (and the same files in `.claude/skills/`): writing a
 person's time from their description, preparing a timesheet for invoicing and
-finding the missing days. In the Environment browser the App also offers its
-main actions as WebMCP tools (`find_time_entries`, `start_timer`,
-`add_time_entry`, `get_time_report` and more); none of them publishes or
-deletes.
+finding the missing days. The App offers its main actions as tools for agents
+(`find_time_entries`, `start_timer`, `add_time_entry`, `get_time_report` and
+more), defined once on its server: on `/mcp` of the Application and as WebMCP
+tools in the Environment browser. They list only what the person's role and
+the writer mode allow, and none of them publishes or deletes.
 
 ## Adopt it
 

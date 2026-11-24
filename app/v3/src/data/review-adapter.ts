@@ -14,8 +14,8 @@ import { COLLECTION_NAMES, type CollectionName } from "../domain/collections.ts"
 import type { Policy } from "../domain/policy.ts";
 import { type Language, messages } from "../language/messages.ts";
 
-/** Bookkeeping fields every save changes, and the subject the name stands for; the review leaves them out. */
-const HIDDEN = new Set(["updatedAt", "updatedBy", "person"]);
+/** Bookkeeping fields every save changes (the write revision too), and the subject the name stands for; the review leaves them out. */
+const HIDDEN = new Set(["updatedAt", "updatedBy", "revision", "person"]);
 const MOMENTS = new Set(["startedAt", "endedAt", "autoStoppedAt"]);
 /** The order a reviewer reads the fields in; the engine lists them by key. */
 const ORDER = [

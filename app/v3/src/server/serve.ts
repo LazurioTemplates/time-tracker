@@ -10,6 +10,7 @@ import type { TimeStore } from "../data/store.ts";
 import type { Viewer } from "../domain/access.ts";
 import { instance, policy } from "../instance/settings.ts";
 import type { Language } from "../language/messages.ts";
+import { createAgentTools } from "./agent-tools.ts";
 import { createApi } from "./api.ts";
 import { clientDirectory, createStaticHandler } from "./static.ts";
 import { type Entry, LISTENER, mayWriteOf, viewerOf } from "./viewer.ts";
@@ -27,6 +28,17 @@ export interface ServeOptions {
   mayWrite?: (request: Request) => boolean;
   /** The demo may show the other language; the App speaks the instance's. */
   language?: Language;
+}
+
+/**
+ * Whose timer the tools stop: only the fictional demo's API reads its own
+ * person (`options.viewer`), so the tools take the person from there; the App
+ * itself leaves the tools with the person the registry reads from `appAccess`.
+ */
+export function toolSelf(viewer: ServeOptions["viewer"]): {
+  self?: (request: Request) => string | null;
+} {
+  return viewer ? { self: (request) => viewer(request).viewer.person?.subject ?? null } : {};
 }
 
 /**
@@ -58,6 +70,15 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
     organization: instance.organization,
     language: options.language ?? instance.language,
   });
+  // The tools for agents call the same API (`agent-tools.ts`), offered on
+  // `/mcp` and to the page on `/api/agent-tools`.
+  const [ownOrigin] = origins;
+  const tools = createAgentTools({
+    api,
+    origin: app.externalOrigin ?? ownOrigin ?? `http://127.0.0.1:${app.port}`,
+    language: options.language ?? instance.language,
+    ...toolSelf(options.viewer),
+  });
 
   const hostAllowed = (req: Request) => {
     const header = req.headers.get("host") ?? "";
@@ -72,6 +93,9 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
   const handle = withHealth(
     async (req: Request) => {
       const url = new URL(req.url);
+      if (url.pathname === "/mcp") return tools.handleMcp(req);
+      const toolPage = await tools.handlePage(req);
+      if (toolPage) return toolPage;
       if (url.pathname.startsWith("/api/")) return api(req);
       if (serveClient && (req.method === "GET" || req.method === "HEAD"))
         return serveClient(url.pathname);
@@ -94,6 +118,7 @@ export async function serve(createStore: () => TimeStore, options: ServeOptions)
         development: { hmr: true, console: false },
         routes: {
           "/api/*": guarded,
+          "/mcp": guarded,
           [HEALTH_PATH]: guarded,
           "/*": (await import("../ui/index.html")).default,
         },

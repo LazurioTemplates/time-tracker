@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { type CHANGES, readOnly, type TimeStore } from "../src/data/store.ts";
-import { ALEX, JAMIE, NEW_ID, newEntry, sampleData } from "./support/seed.ts";
+import { ALEX, JAMIE, NEW_ID, NOW, newEntry, sampleData } from "./support/seed.ts";
 
 /**
  * The shared test suite of the storage port. Every implementation runs it:
@@ -133,6 +133,51 @@ export function storeContract(
       expect(await refusal(() => store.saveEntry(NEW_ID, newEntry(), null))).toBe("record_changed");
     });
 
+    test("every write gives a new revision, also when A → B → A repeats the content", async () => {
+      const a = newEntry();
+      const first = await store.saveEntry(NEW_ID, a, null);
+      const second = await store.saveEntry(
+        NEW_ID,
+        { ...a, note: "Nabídka pro bistro" },
+        first.revision,
+      );
+      const third = await store.saveEntry(NEW_ID, a, second.revision);
+      expect(third.value).toEqual(first.value);
+      expect(new Set([first.revision, second.revision, third.revision]).size).toBe(3);
+      expect((await store.getEntry(NEW_ID))?.revision).toBe(third.revision);
+      // An editor that opened the first A is refused, though the content is A again.
+      expect(
+        await refusal(() => store.saveEntry(NEW_ID, { ...a, note: "Stará verze" }, first.revision)),
+      ).toBe("record_changed");
+      expect(await refusal(() => store.deleteEntry(NEW_ID, first.revision))).toBe("record_changed");
+      // The same for the other collections, and the write revision stays inside the port.
+      const client = { name: "Example Garden", archived: false };
+      const c1 = await store.saveClient("example-garden", client, null);
+      const c2 = await store.saveClient(c1.id, { ...client, archived: true }, c1.revision);
+      const c3 = await store.saveClient(c1.id, client, c2.revision);
+      expect(new Set([c1.revision, c2.revision, c3.revision]).size).toBe(3);
+      expect(await refusal(() => store.saveClient(c1.id, client, c1.revision))).toBe(
+        "record_changed",
+      );
+      const project = { name: "Web zahrady", client: c1.id, billable: true, archived: false };
+      const p1 = await store.saveProject("zahrada-web", project, null);
+      const p2 = await store.saveProject(p1.id, { ...project, billable: false }, p1.revision);
+      const p3 = await store.saveProject(p1.id, project, p2.revision);
+      expect(new Set([p1.revision, p2.revision, p3.revision]).size).toBe(3);
+      expect(await refusal(() => store.saveProject(p1.id, project, p1.revision))).toBe(
+        "record_changed",
+      );
+      for (const row of [
+        third,
+        c3,
+        p3,
+        ...(await store.listEntries()),
+        ...(await store.listClients()),
+        ...(await store.listProjects()),
+      ])
+        expect(row.value).not.toHaveProperty("revision");
+    });
+
     test("refuses an entry that breaks its schema or a rule across records", async () => {
       const cases: [Parameters<typeof newEntry>[0], string][] = [
         [{ note: "x".repeat(501) }, "invalid_record"],
@@ -192,6 +237,15 @@ export function storeContract(
         "example-garden",
         { name: "Example Garden", archived: false },
         null,
+        ALEX,
+      );
+      // The port stamps who saved a client or project, and when.
+      expect(client.value).toMatchObject({
+        updatedAt: new Date(NOW).toISOString(),
+        updatedBy: ALEX,
+      });
+      expect((await store.listClients()).find((row) => row.id === client.id)?.value).toEqual(
+        client.value,
       );
       const project = await store.saveProject(
         "zahrada-web",

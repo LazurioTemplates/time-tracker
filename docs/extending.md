@@ -23,9 +23,30 @@ with a security fix.
   (`app/v3/src/data/store.ts`) named by the domain (`archiveClient`, not
   `moveFile`), implemented in every store and covered by
   `tests/store-contract.ts`. The server and the UI call only the port.
+- **Revisions.** Every write of the port stores a new random write revision
+  in the record's `revision` field (`stamped` in
+  `app/v3/src/data/records.ts`, `crypto.randomUUID()`), in every collection,
+  and the revision the port hands out and compares (`baseRevision`) is the
+  hash of the stored record, write revision and content together. A new
+  collection's Zod schema takes `revision: writeRevision` (optional) and a
+  new write goes through `stamped`; the values the port hands out leave the
+  field out (`unstamped`). Never derive a revision from the content alone or
+  count writes: after A → B → A a content fingerprint repeats (Lazurio Module
+  Standard, "One data port"). `tests/store-contract.ts` checks A → B → A for
+  every store. repository-db 3.4.0 treats `record.revision` as audit metadata
+  with `updatedAt` and `updatedBy`, and merges two concurrent edits of
+  different fields only when the record has an `updatedAt` each save sets:
+  without it a record with a revision stops as a conflict on
+  `/record/revision`. Entries set theirs in the server; the port stamps a
+  client's or project's (`audited` in `records.ts`). A new collection takes
+  optional `updatedAt` and `updatedBy` in its Zod schema and goes through
+  `audited` too.
 - **A new page or action** is a React component in `app/v3/src/ui/` calling
-  only the HTTP API (`app/v3/src/ui/api.ts`), with its WebMCP tool in
-  `app/v3/src/ui/webmcp.ts` when people and agents do it often.
+  only the HTTP API (`app/v3/src/ui/api.ts`), with its tool for agents in
+  `app/v3/src/server/agent-tools.ts` when people and agents do it often. A
+  tool is defined once on the server, calls the same API and is offered on
+  `/mcp` and to the page; only a tool that just opens a view lives in
+  `app/v3/src/ui/webmcp.ts`.
 - **Words.** Every text people read is a message in
   `app/v3/src/language/messages.ts`, written in Czech and in English; the tests
   refuse one without the other.
@@ -118,9 +139,9 @@ design system by a relative path.
 
 ## Stack profile releases
 
-The template follows the stack profile `app-data@2026.12`
+The template follows the stack profile `app-data@2027.03`
 ([`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data),
-release 2026.12): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
+release 2027.03): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
 repository-db and module-kit (`app/v3/package.json`). A **stack profile
 release** moves those versions together, for example `app-data@2026.11` to
 `app-data@2027.05`: one template release that updates `packageManager`, the
@@ -129,10 +150,12 @@ reformats once. Organizations take it by merging its tag like any other
 release. Between profile releases only patch versions with a security fix
 change.
 
-Release 2026.12 names `@lazurio/module-kit` v0.4.0, which Time Tracker uses
+Release 2027.03 names `@lazurio/module-kit` v0.6.0, which Time Tracker uses
 for `appAccess` (decision 0231), the one writer rule `dataWriter` and the
-contract-test helpers of `@lazurio/module-kit/tools/testing`; there is no
-deviation from the profile any more.
+contract-test helpers of `@lazurio/module-kit/tools/testing`. v0.6.0 offers
+an App's publication tools in a production application too; Time Tracker
+offers none. There is no deviation from the
+profile.
 
 Planned profile releases already known: Vite+ is reconsidered when it
 supports Bun as a runtime and its formatter reaches 1.0; Biome's YAML and
