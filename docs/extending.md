@@ -139,9 +139,9 @@ design system by a relative path.
 
 ## Stack profile releases
 
-The template follows the stack profile `app-data@2027.02`
+The template follows the stack profile `app-data@2027.03`
 ([`app-data`](https://github.com/Lazurio/LazurioPlatform/blob/main/docs/stack-profiles.md#app-data),
-release 2027.02): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
+release 2027.03): exact versions of Bun, TypeScript, Vite, React, Biome, Zod,
 repository-db and module-kit (`app/v3/package.json`). A **stack profile
 release** moves those versions together, for example `app-data@2026.11` to
 `app-data@2027.05`: one template release that updates `packageManager`, the
@@ -150,7 +150,7 @@ reformats once. Organizations take it by merging its tag like any other
 release. Between profile releases only patch versions with a security fix
 change.
 
-Release 2027.02 names `@lazurio/module-kit` v0.6.0, which Time Tracker uses
+Release 2027.03 names `@lazurio/module-kit` v0.6.0, which Time Tracker uses
 for `appAccess` (decision 0231), the one writer rule `dataWriter` and the
 contract-test helpers of `@lazurio/module-kit/tools/testing`. v0.6.0 offers
 an App's publication tools in a production application too; Time Tracker
